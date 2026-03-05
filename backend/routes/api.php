@@ -24,7 +24,8 @@ Route::get('/user', function (Request $request) {
 Route::post('/login', [AuthController::class, 'login']);
 
 // semua route /admin/
-Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
+// Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
+Route::prefix('admin')->middleware(['auth:sanctum','admin'])->group(function () {
 
     Route::prefix('masters')->group(function () {
 
@@ -49,6 +50,8 @@ Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
             ->only(['index', 'store', 'update', 'destroy']);
     });
 });
+
+Route::post('/register', [AuthController::class, 'register']);
 
 Route::prefix('public')->group(function () {
     Route::get('/vehicles', [PublicVehicleController::class, 'index']);

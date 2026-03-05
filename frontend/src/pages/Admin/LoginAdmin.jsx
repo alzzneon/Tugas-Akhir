@@ -35,13 +35,19 @@ export default function LoginAdmin() {
       localStorage.setItem("admin_token", data.token);
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
-      // ✅ redirect ke dashboard admin (route baru)
-      navigate("/admin/dashboard", { replace: true });
+     
+      // navigate("/admin/dashboard", { replace: true });
+      if (data.user.role === "admin" || data.user.role === "super_admin") {
+        navigate("/admin/dashboard", { replace: true });
+      } else {
+        setMsg("Akun ini bukan admin");
+      }
     } catch {
       setMsg("❌ Gagal koneksi ke server");
     } finally {
       setLoading(false);
     }
+    
   }
 
   return (
