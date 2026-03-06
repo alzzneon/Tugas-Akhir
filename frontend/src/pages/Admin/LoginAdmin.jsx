@@ -31,12 +31,10 @@ export default function LoginAdmin() {
         return;
       }
 
-      // ✅ simpan token admin (key baru biar tidak bentrok dengan customer nanti)
-      localStorage.setItem("admin_token", data.token);
-      localStorage.setItem("admin_user", JSON.stringify(data.user));
+      // ✅ simpan token
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-     
-      // navigate("/admin/dashboard", { replace: true });
       if (data.user.role === "admin" || data.user.role === "super_admin") {
         navigate("/admin/dashboard", { replace: true });
       } else {
@@ -47,7 +45,6 @@ export default function LoginAdmin() {
     } finally {
       setLoading(false);
     }
-    
   }
 
   return (

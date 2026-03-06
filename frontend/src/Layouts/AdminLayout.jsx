@@ -75,7 +75,7 @@ export default function AdminLayout() {
   }, [isMasterActive, isKendaraanActive, isRentActive]);
 
   const logout = () => {
-    localStorage.removeItem("admin_token");
+    localStorage.removeItem("token");
     localStorage.removeItem("admin_user");
     navigate("/admin/login", { replace: true });
   };

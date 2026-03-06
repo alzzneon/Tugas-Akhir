@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, Notifiable, HasUuids;
 
     protected $table = 'users';
 
@@ -28,4 +29,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password'
     ];
+
+    protected $keyType = 'string';
+    public $incrementing = false;
 }
