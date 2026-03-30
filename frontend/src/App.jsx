@@ -15,6 +15,8 @@ import PaymentStatuses from "./pages/Admin/Master/PaymentStatuses";
 import Cars from "./pages/Admin/Vehicles/Cars";
 import Motorcycles from "./pages/Admin/Vehicles/Motorcycles";
 
+import AdminUsers from "./pages/Admin/AdminUsers";
+
 // CUSTOMER
 import Home from "./pages/Customer/Home";
 import Mobil from "./pages/Customer/Mobil";
@@ -53,6 +55,7 @@ export default function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
 
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="admins" element={<AdminUsers />} />
         <Route path="kendaraan" element={<Kendaraan />} />
 
         {/* MASTER */}

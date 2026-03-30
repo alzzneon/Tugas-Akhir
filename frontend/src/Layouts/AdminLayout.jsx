@@ -10,6 +10,7 @@ import {
   Bell,
   ChevronLeft,
   Car,
+  Users,
 } from "lucide-react";
 
 const navBase =
@@ -120,6 +121,13 @@ export default function AdminLayout() {
               to="/admin/dashboard"
               icon={LayoutDashboard}
               label="Dashboard"
+              collapsed={collapsed}
+            />
+
+            <SideItem
+              to="/admin/admins"
+              icon={Users}
+              label="Admin Management"
               collapsed={collapsed}
             />
 

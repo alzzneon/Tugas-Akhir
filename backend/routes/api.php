@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\PublicVehicleController;
 
 use App\Http\Controllers\Api\Admin\VehicleTypeController;
@@ -26,6 +27,9 @@ Route::post('/login', [AuthController::class, 'login']);
 // semua route /admin/
 // Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
 Route::prefix('admin')->middleware(['auth:sanctum','admin'])->group(function () {
+
+    Route::apiResource('admins', AdminUserController::class)
+        ->only(['index','store','update','destroy']);
 
     Route::prefix('masters')->group(function () {
 
