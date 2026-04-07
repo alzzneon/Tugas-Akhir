@@ -15,33 +15,72 @@ class AdminUserController extends Controller
         return response()->json($admins);
     }
 
-    public function store(Request $request)
-    {
-        if(auth()->user()->role !== 'super_admin'){
-            return response()->json([
-                'message'=>'Hanya super admin yang bisa membuat admin'
-            ],403);
-        }
+    // public function store(Request $request)
+    // {
+    //     if(auth()->user()->role !== 'super_admin'){
+    //         return response()->json([
+    //             'message'=>'Hanya super admin yang bisa membuat admin'
+    //         ],403);
+    //     }
 
-        $request->validate([
-            'full_name'=>'required',
-            'email'=>'required|email|unique:users',
-            'password'=>'required|min:6'
-        ]);
+    //     $request->validate([
+    //         'full_name'=>'required',
+    //         'email'=>'required|email|unique:users',
+    //         'password'=>'required|min:6'
+    //     ]);
 
-        $admin = User::create([
-            'full_name'=>$request->full_name,
-            'email'=>$request->email,
-            'password'=>Hash::make($request->password),
-            'role'=>'admin',
-            'is_active'=>true
-        ]);
+    //     $admin = User::create([
+    //         'full_name'=>$request->full_name,
+    //         'email'=>$request->email,
+    //         'password'=>Hash::make($request->password),
+    //         'role'=>'admin',
+    //         'is_active'=>true
+    //     ]);
 
+    //     return response()->json([
+    //         'message'=>'Admin berhasil dibuat',
+    //         'data'=>$admin
+    //     ]);
+    // }
+public function store(Request $request)
+{
+    $user = auth()->user();
+
+    if (!$user || $user->role !== 'super_admin') {
         return response()->json([
-            'message'=>'Admin berhasil dibuat',
-            'data'=>$admin
-        ]);
+            'message' => 'Hanya super admin yang bisa membuat admin'
+        ], 403);
     }
+
+    $request->validate([
+        'full_name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email',
+        'password' => 'required|string|min:6',
+        'phone_number' => 'required|string|max:30',
+        'address' => 'nullable|string',
+        'birth_place' => 'nullable|string|max:255',
+        'birth_date' => 'nullable|date',
+        'position' => 'nullable|string|max:255',
+    ]);
+
+    $admin = User::create([
+        'full_name' => $request->full_name,
+        'email' => $request->email,
+        'password' => Hash::make($request->password),
+        'role' => 'admin',
+        'phone_number' => $request->phone_number,
+        'address' => $request->address,
+        'birth_place' => $request->birth_place,
+        'birth_date' => $request->birth_date,
+        'position' => $request->position,
+        'is_active' => true
+    ]);
+
+    return response()->json([
+        'message' => 'Admin berhasil dibuat',
+        'data' => $admin
+    ], 201);
+}
 
     public function update(Request $request,$id)
     {
