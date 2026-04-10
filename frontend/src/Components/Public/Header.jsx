@@ -1,12 +1,47 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Header() {
+  const navigate = useNavigate();
+
   const [showInfoDropdown, setShowInfoDropdown] = useState(false);
   const [showKendaraanDropdown, setShowKendaraanDropdown] = useState(false);
   const [showAkunDropdown, setShowAkunDropdown] = useState(false);
+  const [user, setUser] = useState(null);
 
-  const isLoggedIn = false; // TODO: ganti dari state/context
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, []);
+
+  const isLoggedIn = !!user;
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    navigate("/login");
+  };
+
+  const toggleInfoDropdown = () => {
+    setShowInfoDropdown((prev) => !prev);
+    setShowKendaraanDropdown(false);
+    setShowAkunDropdown(false);
+  };
+
+  const toggleKendaraanDropdown = () => {
+    setShowKendaraanDropdown((prev) => !prev);
+    setShowInfoDropdown(false);
+    setShowAkunDropdown(false);
+  };
+
+  const toggleAkunDropdown = () => {
+    setShowAkunDropdown((prev) => !prev);
+    setShowInfoDropdown(false);
+    setShowKendaraanDropdown(false);
+  };
 
   return (
     <header className="relative z-50 bg-white border-b border-gray-200 px-12 py-4">
@@ -23,18 +58,22 @@ export default function Header() {
             Beranda
           </Link>
 
-          {/* ✅ Informasi dropdown (FIX: hover di wrapper) */}
+          {/* Informasi */}
           <div
             className="relative"
             onMouseEnter={() => setShowInfoDropdown(true)}
             onMouseLeave={() => setShowInfoDropdown(false)}
           >
-            <button className="text-gray-900 font-medium hover:text-red-500">
+            <button
+              type="button"
+              onClick={toggleInfoDropdown}
+              className="text-gray-900 font-medium hover:text-red-500 cursor-pointer"
+            >
               Informasi ▾
             </button>
 
             {showInfoDropdown && (
-              <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[200px] py-2 z-50">
+              <div className="absolute top-full left-0 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[200px] py-2 z-50">
                 <Link
                   to="/tentang"
                   className="block px-5 py-3 text-gray-900 hover:bg-gray-50"
@@ -63,18 +102,22 @@ export default function Header() {
             )}
           </div>
 
-          {/* ✅ Kendaraan dropdown (FIX: hover di wrapper) */}
+          {/* Kendaraan */}
           <div
             className="relative"
             onMouseEnter={() => setShowKendaraanDropdown(true)}
             onMouseLeave={() => setShowKendaraanDropdown(false)}
           >
-            <button className="text-gray-900 font-medium hover:text-red-500">
+            <button
+              type="button"
+              onClick={toggleKendaraanDropdown}
+              className="text-gray-900 font-medium hover:text-red-500 cursor-pointer"
+            >
               Kendaraan ▾
             </button>
 
             {showKendaraanDropdown && (
-              <div className="absolute top-full left-0 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[160px] py-2 z-50">
+              <div className="absolute top-full left-0 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[160px] py-2 z-50">
                 <Link
                   to="/mobil"
                   className="block px-5 py-3 text-gray-900 hover:bg-gray-50"
@@ -91,21 +134,25 @@ export default function Header() {
             )}
           </div>
 
-          {/* ✅ Conditional Akun/Username */}
+          {/* Akun */}
           {isLoggedIn ? (
             <div
               className="relative"
               onMouseEnter={() => setShowAkunDropdown(true)}
               onMouseLeave={() => setShowAkunDropdown(false)}
             >
-              <button className="text-gray-900 font-medium hover:text-red-500">
-                Username ▾
+              <button
+                type="button"
+                onClick={toggleAkunDropdown}
+                className="text-gray-900 font-medium hover:text-red-500 cursor-pointer"
+              >
+                {user?.full_name || "Akun"} ▾
               </button>
 
               {showAkunDropdown && (
-                <div className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[160px] py-2 z-50">
+                <div className="absolute top-full right-0 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[180px] py-2 z-50">
                   <Link
-                    to="/profil"
+                    to="/profile"
                     className="block px-5 py-3 text-gray-900 hover:bg-gray-50"
                   >
                     Profil
@@ -117,7 +164,11 @@ export default function Header() {
                     Riwayat
                   </Link>
                   <hr className="my-2 border-gray-200" />
-                  <button className="block w-full text-left px-5 py-3 text-red-500 hover:bg-gray-50">
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="block w-full text-left px-5 py-3 text-red-500 hover:bg-gray-50"
+                  >
                     Logout
                   </button>
                 </div>

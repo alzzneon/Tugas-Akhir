@@ -38,26 +38,62 @@ class AuthController extends Controller
         ]);
     }
 
+    // public function register(Request $request)
+    // {
+    //     $request->validate([
+    //         'full_name' => 'required|string|max:255',
+    //         'email' => 'required|email|unique:users',
+    //         'password' => 'required|min:6'
+    //     ]);
+
+    //     $user = User::create([
+    //         'full_name' => $request->full_name,
+    //         'email' => $request->email,
+    //         'password' => bcrypt($request->password),
+    //         'role' => 'customer'
+    //     ]);
+
+    //     $token = $user->createToken('auth_token')->plainTextToken;
+
+    //     return response()->json([
+    //         'token' => $token,
+    //         'user' => $user
+    //     ]);
+    // }
+
     public function register(Request $request)
     {
         $request->validate([
             'full_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6'
+            'email' => 'required|email|unique:users,email',
+            'phone_number' => 'required|string|max:20|unique:users,phone_number',
+            'address' => 'required|string',
+            'password' => 'required|min:6|confirmed',
         ]);
 
         $user = User::create([
             'full_name' => $request->full_name,
             'email' => $request->email,
+            'phone_number' => $request->phone_number,
+            'address' => $request->address,
             'password' => bcrypt($request->password),
-            'role' => 'customer'
+            'role' => 'customer',
+            'is_active' => true,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
+            'message' => 'Register berhasil',
             'token' => $token,
-            'user' => $user
-        ]);
+            'user' => [
+                'id' => $user->id,
+                'role' => $user->role,
+                'full_name' => $user->full_name,
+                'email' => $user->email,
+                'phone_number' => $user->phone_number,
+                'address' => $user->address,
+            ]
+        ], 201);
     }
 }
