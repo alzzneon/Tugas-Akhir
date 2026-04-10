@@ -14,15 +14,17 @@ import PaymentStatuses from "./pages/Admin/Master/PaymentStatuses";
 
 import Cars from "./pages/Admin/Vehicles/Cars";
 import Motorcycles from "./pages/Admin/Vehicles/Motorcycles";
-
 import AdminUsers from "./pages/Admin/AdminUsers";
+
+// PROFILE
+import ProfilePage from "./pages/ProfilePage";
 
 // CUSTOMER
 import Home from "./pages/Customer/Home";
 import Mobil from "./pages/Customer/Mobil";
 import Motor from "./pages/Customer/Motor";
 
-function AdminProtectedRoute({ children }) {
+function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
 
   if (!token) {
@@ -43,13 +45,23 @@ export default function App() {
       {/* ADMIN LOGIN */}
       <Route path="/admin/login" element={<LoginAdmin />} />
 
+      {/* PROFILE - GLOBAL UNTUK SEMUA USER LOGIN */}
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* ADMIN AREA */}
       <Route
         path="/admin"
         element={
-          <AdminProtectedRoute>
+          <ProtectedRoute>
             <AdminLayout />
-          </AdminProtectedRoute>
+          </ProtectedRoute>
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />

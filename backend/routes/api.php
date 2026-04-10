@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\Admin\RentalStatusController;
 use App\Http\Controllers\Api\Admin\PaymentStatusController;
 use App\Http\Controllers\Api\Admin\VehicleController;
 
+use App\Http\Controllers\Api\ProfileController;
+
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
@@ -53,6 +55,12 @@ Route::prefix('admin')->middleware(['auth:sanctum','admin'])->group(function () 
         Route::apiResource('vehicles', VehicleController::class)
             ->only(['index', 'store', 'update', 'destroy']);
     });
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
 });
 
 Route::post('/register', [AuthController::class, 'register']);

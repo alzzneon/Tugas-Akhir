@@ -32,4 +32,9 @@ class User extends Authenticatable
 
     protected $keyType = 'string';
     public $incrementing = false;
+
+    protected $casts = [
+    'birth_date' => 'date',
+    'is_active' => 'boolean',
+    ];
 }

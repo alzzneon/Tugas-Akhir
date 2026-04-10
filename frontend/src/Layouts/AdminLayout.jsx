@@ -1,16 +1,16 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   Layers,
   CalendarDays,
   ChevronDown,
-  LogOut,
   Search,
   Bell,
   ChevronLeft,
   Car,
   Users,
+  UserCircle,
 } from "lucide-react";
 
 const navBase =
@@ -58,8 +58,11 @@ export default function AdminLayout() {
   const { pathname } = useLocation();
 
   const [collapsed, setCollapsed] = useState(false);
+  const [openUserMenu, setOpenUserMenu] = useState(false);
 
-  // ✅ active group checks
+  const userMenuRef = useRef(null);
+
+  // active group checks
   const isMasterActive = pathname.startsWith("/admin/master/");
   const isKendaraanActive = pathname.startsWith("/admin/kendaraan");
   const isRentActive = pathname.startsWith("/admin/penyewaan");
@@ -75,10 +78,29 @@ export default function AdminLayout() {
     if (isRentActive) setOpenRent(true);
   }, [isMasterActive, isKendaraanActive, isRentActive]);
 
+  // tutup dropdown kalau klik di luar
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setOpenUserMenu(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("admin_user");
     navigate("/admin/login", { replace: true });
+  };
+
+  const goToProfile = () => {
+    setOpenUserMenu(false);
+    navigate("/profile");
   };
 
   return (
@@ -116,7 +138,6 @@ export default function AdminLayout() {
         {/* Scrollable Menu */}
         <div className="h-[calc(100vh-64px)] overflow-y-auto px-3 py-4">
           <nav className="space-y-2">
-            {/* 1) Dashboard */}
             <SideItem
               to="/admin/dashboard"
               icon={LayoutDashboard}
@@ -131,7 +152,7 @@ export default function AdminLayout() {
               collapsed={collapsed}
             />
 
-            {/* 2) Master Data */}
+            {/* Master Data */}
             <button
               onClick={() => setOpenMaster((v) => !v)}
               className={cx(
@@ -148,7 +169,10 @@ export default function AdminLayout() {
                   <span className="flex-1 text-left">Master Data</span>
                   <ChevronDown
                     size={16}
-                    className={cx("transition-transform", openMaster && "rotate-180")}
+                    className={cx(
+                      "transition-transform",
+                      openMaster && "rotate-180"
+                    )}
                   />
                 </>
               )}
@@ -167,7 +191,7 @@ export default function AdminLayout() {
               </div>
             )}
 
-            {/* 3) Kendaraan */}
+            {/* Kendaraan */}
             <button
               onClick={() => setOpenKendaraan((v) => !v)}
               className={cx(
@@ -184,7 +208,10 @@ export default function AdminLayout() {
                   <span className="flex-1 text-left">Kendaraan</span>
                   <ChevronDown
                     size={16}
-                    className={cx("transition-transform", openKendaraan && "rotate-180")}
+                    className={cx(
+                      "transition-transform",
+                      openKendaraan && "rotate-180"
+                    )}
                   />
                 </>
               )}
@@ -192,13 +219,12 @@ export default function AdminLayout() {
 
             {!collapsed && openKendaraan && (
               <div className="ml-9 space-y-1">
-                {/* ✅ "Semua Kendaraan" DIHILANGKAN */}
                 <SubItem to="/admin/kendaraan/mobil" label="Mobil" />
                 <SubItem to="/admin/kendaraan/motor" label="Motor" />
               </div>
             )}
 
-            {/* 4) Penyewaan */}
+            {/* Penyewaan */}
             <button
               onClick={() => setOpenRent((v) => !v)}
               className={cx(
@@ -215,7 +241,10 @@ export default function AdminLayout() {
                   <span className="flex-1 text-left">Penyewaan</span>
                   <ChevronDown
                     size={16}
-                    className={cx("transition-transform", openRent && "rotate-180")}
+                    className={cx(
+                      "transition-transform",
+                      openRent && "rotate-180"
+                    )}
                   />
                 </>
               )}
@@ -262,14 +291,46 @@ export default function AdminLayout() {
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
             </button>
 
-            {/* Logout */}
-            <button
-              onClick={logout}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 font-medium"
-            >
-              <LogOut size={18} />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
+            {/* User Menu */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setOpenUserMenu((v) => !v)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 font-medium"
+              >
+                <UserCircle size={20} />
+                <span className="hidden sm:inline">Akun</span>
+                <ChevronDown
+                  size={16}
+                  className={cx(
+                    "transition-transform",
+                    openUserMenu && "rotate-180"
+                  )}
+                />
+              </button>
+
+              {openUserMenu && (
+                <div className="absolute right-0 mt-2 w-44 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden z-20">
+                  <button
+                    onClick={goToProfile}
+                    className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Profile
+                  </button>
+
+                  <div className="border-t border-gray-100" />
+
+                  <button
+                    onClick={() => {
+                      setOpenUserMenu(false);
+                      logout();
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
