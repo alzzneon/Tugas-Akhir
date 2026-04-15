@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Api\ResourceController;
+use App\Models\Payment;
 use App\Models\Rental;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -86,7 +87,7 @@ class RentalController extends ResourceController
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => ['nullable', 'uuid', 'exists:users,id'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'vehicle_id' => ['required', 'integer', 'exists:mt_vehicles,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after:start_date'],
@@ -289,6 +290,73 @@ class RentalController extends ResourceController
         return $this->success(
             $this->transformRental($rental->fresh(['user', 'vehicle.type'])),
             'Rental selesai.'
+        );
+    }
+
+    public function updateStatusPayment(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'max:50'],
+            'payment_status' => ['required', 'string', 'max:50'],
+            'payment_type' => ['nullable', 'string', 'max:20'],
+            'payment_method' => ['nullable', 'string', 'max:50'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $rental = Rental::query()->findOrFail($id);
+
+        DB::transaction(function () use ($validated, $rental) {
+            $amount = (float) ($validated['amount'] ?? 0);
+
+            $updatePayload = [
+                'status' => $validated['status'],
+                'payment_status' => $validated['payment_status'],
+            ];
+
+            if ($amount > 0) {
+                $paidAmount = (float) $rental->paid_amount + $amount;
+                $remainingAmount = max(0, (float) $rental->total_price - $paidAmount);
+
+                $updatePayload['paid_amount'] = $paidAmount;
+                $updatePayload['remaining_amount'] = $remainingAmount;
+
+                Payment::create([
+                    'rental_id' => $rental->id,
+                    'amount' => $amount,
+                    'payment_method' => $validated['payment_method'] ?? 'transfer',
+                    'payment_status' => 'paid',
+                    'payment_type' => $validated['payment_type'] ?? 'full',
+                    'provider' => 'manual',
+                    'provider_reference' => 'MANUAL-' . now()->format('YmdHis') . '-' . $rental->id,
+                    'notes' => $validated['notes'] ?? null,
+                    'paid_at' => now(),
+                ]);
+            }
+
+            if ($validated['status'] === 'ongoing' && empty($rental->actual_pickup_at)) {
+                $updatePayload['actual_pickup_at'] = now();
+            }
+
+            if ($validated['status'] === 'completed' && empty($rental->actual_return_at)) {
+                $updatePayload['actual_return_at'] = now();
+            }
+
+            $rental->update($updatePayload);
+        });
+
+        $rental->load([
+            'user:id,full_name,email,phone_number',
+            'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
+            'vehicle.type:id,code,name',
+            'approvedBy:id,full_name',
+            'rejectedBy:id,full_name',
+            'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
+        ]);
+
+        return $this->success(
+            $this->transformRental($rental),
+            'Status rental dan pembayaran berhasil diperbarui.'
         );
     }
 
