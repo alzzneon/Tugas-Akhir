@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\PublicVehicleController;
+use App\Http\Controllers\Api\PublicRentalController;
 
 use App\Http\Controllers\Api\Admin\VehicleTypeController;
 use App\Http\Controllers\Api\Admin\VehicleBrandController;
@@ -59,6 +60,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::patch('/rentals/{id}/reject', [AdminRentalController::class, 'reject']);
     Route::patch('/rentals/{id}/mark-ongoing', [AdminRentalController::class, 'markOngoing']);
     Route::patch('/rentals/{id}/complete', [AdminRentalController::class, 'complete']);
+    Route::patch('/rentals/{id}/update-status-payment', [AdminRentalController::class, 'updateStatusPayment']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
