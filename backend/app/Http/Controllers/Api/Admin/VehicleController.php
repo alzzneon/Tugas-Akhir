@@ -12,17 +12,26 @@ class VehicleController extends ResourceController
 {
     public function index(Request $request)
     {
-        $query = Vehicle::query()->with(['type', 'brand', 'transmission']);
+        $query = Vehicle::query()
+            ->with(['type', 'brand', 'transmission'])
+            ->where('is_active', true);
+
         $typeCode = $request->input('type_code') ?? $request->input('type');
+
         if (!empty($typeCode)) {
-            $query->whereHas('type', fn ($q) => $q->where('code', $typeCode));
+            $typeCode = strtoupper(trim((string) $typeCode));
+
+            $query->whereHas('type', function ($q) use ($typeCode) {
+                $q->whereRaw('UPPER(code) = ?', [$typeCode]);
+            });
         }
 
         if ($request->filled('q')) {
             $search = $request->string('q')->toString();
+
             $query->where(function ($w) use ($search) {
                 $w->where('name', 'like', "%{$search}%")
-                  ->orWhere('plate_number', 'like', "%{$search}%");
+                ->orWhere('plate_number', 'like', "%{$search}%");
             });
         }
 

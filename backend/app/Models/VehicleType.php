@@ -12,10 +12,14 @@ class VehicleType extends Model
         'code',
         'name',
         'is_active',
+        'late_fee_per_hour',
+        'late_fee_threshold_hours',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'late_fee_per_hour' => 'decimal:2',
+        'late_fee_threshold_hours' => 'integer',
     ];
 
     public function vehicles()

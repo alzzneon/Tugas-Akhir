@@ -16,6 +16,8 @@ import Cars from "./pages/Admin/Vehicles/Cars";
 import Motorcycles from "./pages/Admin/Vehicles/Motorcycles";
 import AdminUsers from "./pages/Admin/AdminUsers";
 
+import RentalsList from "./pages/Admin/Rentals/RentalsList";
+
 // PROFILE
 import ProfilePage from "./pages/ProfilePage";
 
@@ -85,6 +87,9 @@ export default function App() {
         {/* VEHICLES */}
         <Route path="kendaraan/mobil" element={<Cars />} />
         <Route path="kendaraan/motor" element={<Motorcycles />} />
+
+        <Route path="penyewaan/mobil" element={<RentalsList type="mobil" />} />
+        <Route path="penyewaan/motor" element={<RentalsList type="motor" />} />
 
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
