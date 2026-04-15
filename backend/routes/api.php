@@ -77,4 +77,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::prefix('public')->group(function () {
     Route::get('/vehicles', [PublicVehicleController::class, 'index']);
+    Route::post('/rentals', [PublicRentalController::class, 'store']);
 });
