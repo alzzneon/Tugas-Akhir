@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Header from "../../Components/Public/Header";
+import Footer from "../../Components/Public/Footer";
 
 const API_URL = "http://localhost:8000/api/public/vehicles?type=MOBIL";
 const IMAGE_BASE = "http://localhost:8000/storage/";
@@ -7,6 +10,7 @@ export default function Mobil() {
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -26,74 +30,69 @@ export default function Mobil() {
     load();
   }, []);
 
+  const handleRentNow = (car) => {
+    navigate(`/mobil/${car.id}/sewa`);
+  };
+
   if (loading) {
     return <div className="p-6 text-center">Loading cars...</div>;
   }
 
   if (error) {
-    return (
-      <div className="p-6 text-center text-red-600">
-        {error}
-      </div>
-    );
+    return <div className="p-6 text-center text-red-600">{error}</div>;
   }
 
   if (cars.length === 0) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        No cars available.
-      </div>
-    );
+    return <div className="p-6 text-center text-gray-500">No cars available.</div>;
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Mobil</h1>
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {cars.map((car) => (
-          <div
-            key={car.id}
-            className="rounded-xl border bg-white overflow-hidden hover:shadow-lg transition"
-          >
-            {/* Photo */}
-            <div className="h-48 bg-gray-100 overflow-hidden">
-              <img
-                src={
-                  car.image
-                    ? IMAGE_BASE + car.image
-                    : "/placeholder-car.jpg"
-                }
-                alt={car.name}
-                className="h-full w-full object-cover"
-              />
-            </div>
+      <main className="p-6 flex-1">
+        <h1 className="text-2xl font-bold mb-6">Mobil</h1>
 
-            {/* Content */}
-            <div className="p-4">
-              <h3 className="font-semibold text-lg">{car.name}</h3>
-
-              <div className="text-sm text-gray-500 mt-1">
-                {car.vehicle_brand_name}
-                {car.transmission_name
-                  ? ` • ${car.transmission_name}`
-                  : ""}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {cars.map((car) => (
+            <div
+              key={car.id}
+              className="rounded-xl border bg-white overflow-hidden hover:shadow-lg transition"
+            >
+              <div className="h-48 bg-gray-100 overflow-hidden">
+                <img
+                  src={car.image ? IMAGE_BASE + car.image : "/placeholder-car.jpg"}
+                  alt={car.name}
+                  className="h-full w-full object-cover"
+                />
               </div>
 
-              <div className="mt-3 text-indigo-600 font-bold">
-                Rp {Number(car.daily_rate).toLocaleString("id-ID")} / day
-              </div>
+              <div className="p-4">
+                <h3 className="font-semibold text-lg">{car.name}</h3>
 
-              {/* CTA (optional) */}
-              <button
-                className="mt-4 w-full rounded-lg bg-indigo-600 text-white py-2 font-semibold hover:bg-indigo-700 transition"
-              >
-                Rent Now
-              </button>
+                <div className="text-sm text-gray-500 mt-1">
+                  {car.vehicle_brand_name}
+                  {car.transmission_name ? ` • ${car.transmission_name}` : ""}
+                </div>
+
+                <div className="mt-3 text-indigo-600 font-bold">
+                  Rp {Number(car.daily_rate).toLocaleString("id-ID")} / day
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRentNow(car)}
+                  className="mt-4 w-full rounded-lg bg-indigo-600 text-white py-2 font-semibold hover:bg-indigo-700 transition cursor-pointer"
+                >
+                  Rent Now
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }

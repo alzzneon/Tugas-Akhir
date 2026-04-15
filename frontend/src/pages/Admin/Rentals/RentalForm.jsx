@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
-export default function RentalForm({ type = "mobil", onCreated }) {
+export default function RentalForm({ type = "mobil", onCreated, onCancel }) {
   const token = localStorage.getItem("token");
 
   const [customerMode, setCustomerMode] = useState("registered");
@@ -63,7 +63,6 @@ export default function RentalForm({ type = "mobil", onCreated }) {
       const res = await api.get("/admin/masters/vehicles", {
         params: { type_code: type },
       });
-
       setVehicles(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (err) {
       console.error("Gagal memuat kendaraan:", err);
@@ -104,8 +103,8 @@ export default function RentalForm({ type = "mobil", onCreated }) {
   function validateForm() {
     const nextErrors = {};
 
-    if (customerMode === "registered") {
-      if (!form.user_id) nextErrors.user_id = "User wajib dipilih";
+    if (customerMode === "registered" && !form.user_id) {
+      nextErrors.user_id = "User wajib dipilih";
     }
 
     if (customerMode === "manual") {
@@ -124,7 +123,6 @@ export default function RentalForm({ type = "mobil", onCreated }) {
     if (form.start_date && form.end_date) {
       const start = new Date(form.start_date);
       const end = new Date(form.end_date);
-
       if (end <= start) {
         nextErrors.end_date = "Tanggal selesai harus lebih besar dari tanggal mulai";
       }
@@ -144,7 +142,6 @@ export default function RentalForm({ type = "mobil", onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-
     if (!validateForm()) return;
 
     setSubmitting(true);
@@ -170,7 +167,6 @@ export default function RentalForm({ type = "mobil", onCreated }) {
       }
 
       const res = await api.post("/admin/rentals", payload);
-
       setServerMessage(res.data?.message || "Penyewaan berhasil dibuat");
 
       setForm({
@@ -215,61 +211,52 @@ export default function RentalForm({ type = "mobil", onCreated }) {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold">
-          Tambah Penyewaan {type === "mobil" ? "Mobil" : "Motor"}
-        </h2>
-        <p className="text-sm text-gray-500">
-          Admin dapat membuat penyewaan manual dari panel ini.
-        </p>
-      </div>
-
+    <form onSubmit={handleSubmit} className="space-y-4">
       {serverMessage && (
-        <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
           {serverMessage}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium mb-2">Mode Penyewa</label>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => handleCustomerModeChange("registered")}
-              className={`px-4 py-2 rounded-xl border text-sm ${
-                customerMode === "registered"
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white text-gray-700 border-gray-300"
-              }`}
-            >
-              Pilih User Terdaftar
-            </button>
+      <div>
+        <label className="block text-sm font-medium mb-2">Mode Penyewa</label>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => handleCustomerModeChange("registered")}
+            className={`rounded-xl border px-4 py-2 text-sm ${
+              customerMode === "registered"
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "bg-white text-gray-700 border-gray-300"
+            }`}
+          >
+            Pilih User Terdaftar
+          </button>
 
-            <button
-              type="button"
-              onClick={() => handleCustomerModeChange("manual")}
-              className={`px-4 py-2 rounded-xl border text-sm ${
-                customerMode === "manual"
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white text-gray-700 border-gray-300"
-              }`}
-            >
-              Input Manual
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => handleCustomerModeChange("manual")}
+            className={`rounded-xl border px-4 py-2 text-sm ${
+              customerMode === "manual"
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "bg-white text-gray-700 border-gray-300"
+            }`}
+          >
+            Input Manual
+          </button>
         </div>
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {customerMode === "registered" ? (
           <div>
-            <label className="block text-sm font-medium mb-1">Pilih User</label>
+            <label className="text-sm font-medium text-gray-700">Pilih User *</label>
             <select
               name="user_id"
               value={form.user_id}
               onChange={handleChange}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               disabled={loadingUsers || submitting}
+              className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200 bg-white"
             >
               <option value="">
                 {loadingUsers ? "Memuat user..." : "-- Pilih User --"}
@@ -287,15 +274,15 @@ export default function RentalForm({ type = "mobil", onCreated }) {
         ) : (
           <>
             <div>
-              <label className="block text-sm font-medium mb-1">Nama Penyewa</label>
+              <label className="text-sm font-medium text-gray-700">Nama Penyewa *</label>
               <input
                 type="text"
                 name="customer_name"
                 value={form.customer_name}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                 placeholder="Masukkan nama penyewa"
                 disabled={submitting}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               />
               {errors.customer_name && (
                 <p className="mt-1 text-xs text-red-600">{errors.customer_name}</p>
@@ -303,15 +290,15 @@ export default function RentalForm({ type = "mobil", onCreated }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Nomor Telepon</label>
+              <label className="text-sm font-medium text-gray-700">Nomor Telepon *</label>
               <input
                 type="text"
                 name="customer_phone"
                 value={form.customer_phone}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                 placeholder="08xxxxxxxxxx"
                 disabled={submitting}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               />
               {errors.customer_phone && (
                 <p className="mt-1 text-xs text-red-600">{errors.customer_phone}</p>
@@ -319,28 +306,28 @@ export default function RentalForm({ type = "mobil", onCreated }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Email (opsional)</label>
+              <label className="text-sm font-medium text-gray-700">Email</label>
               <input
                 type="email"
                 name="customer_email"
                 value={form.customer_email}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                 placeholder="email@contoh.com"
                 disabled={submitting}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               />
             </div>
           </>
         )}
 
         <div>
-          <label className="block text-sm font-medium mb-1">Pilih Kendaraan</label>
+          <label className="text-sm font-medium text-gray-700">Pilih Kendaraan *</label>
           <select
             name="vehicle_id"
             value={form.vehicle_id}
             onChange={handleChange}
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             disabled={loadingVehicles || submitting}
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200 bg-white"
           >
             <option value="">
               {loadingVehicles ? "Memuat kendaraan..." : "-- Pilih Kendaraan --"}
@@ -358,14 +345,14 @@ export default function RentalForm({ type = "mobil", onCreated }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Mulai Sewa</label>
+          <label className="text-sm font-medium text-gray-700">Mulai Sewa *</label>
           <input
             type="datetime-local"
             name="start_date"
             value={form.start_date}
             onChange={handleChange}
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             disabled={submitting}
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
           />
           {errors.start_date && (
             <p className="mt-1 text-xs text-red-600">{errors.start_date}</p>
@@ -373,14 +360,14 @@ export default function RentalForm({ type = "mobil", onCreated }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Selesai Sewa</label>
+          <label className="text-sm font-medium text-gray-700">Selesai Sewa *</label>
           <input
             type="datetime-local"
             name="end_date"
             value={form.end_date}
             onChange={handleChange}
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             disabled={submitting}
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
           />
           {errors.end_date && (
             <p className="mt-1 text-xs text-red-600">{errors.end_date}</p>
@@ -388,35 +375,31 @@ export default function RentalForm({ type = "mobil", onCreated }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Batas Pembayaran (jam)
-          </label>
+          <label className="text-sm font-medium text-gray-700">Batas Pembayaran (jam)</label>
           <input
             type="number"
             min="1"
             name="payment_deadline_hours"
             value={form.payment_deadline_hours}
             onChange={handleChange}
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             disabled={submitting}
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
           />
           {errors.payment_deadline_hours && (
-            <p className="mt-1 text-xs text-red-600">
-              {errors.payment_deadline_hours}
-            </p>
+            <p className="mt-1 text-xs text-red-600">{errors.payment_deadline_hours}</p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">DP Awal</label>
+          <label className="text-sm font-medium text-gray-700">DP Awal</label>
           <input
             type="number"
             min="0"
             name="dp_amount"
             value={form.dp_amount}
             onChange={handleChange}
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             disabled={submitting}
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
           />
           {errors.dp_amount && (
             <p className="mt-1 text-xs text-red-600">{errors.dp_amount}</p>
@@ -424,15 +407,15 @@ export default function RentalForm({ type = "mobil", onCreated }) {
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium mb-1">Catatan</label>
+          <label className="text-sm font-medium text-gray-700">Catatan</label>
           <textarea
             name="notes"
             value={form.notes}
             onChange={handleChange}
             rows="3"
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             placeholder="Catatan tambahan"
             disabled={submitting}
+            className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
           />
         </div>
 
@@ -448,17 +431,25 @@ export default function RentalForm({ type = "mobil", onCreated }) {
             Langsung approve saat dibuat admin
           </label>
         </div>
+      </div>
 
-        <div className="md:col-span-2 flex justify-end">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-60"
-          >
-            {submitting ? "Menyimpan..." : "Simpan Penyewaan"}
-          </button>
-        </div>
-      </form>
-    </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50"
+        >
+          Batal
+        </button>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-xl bg-indigo-600 px-4 py-2 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60"
+        >
+          {submitting ? "Menyimpan..." : "Simpan"}
+        </button>
+      </div>
+    </form>
   );
 }

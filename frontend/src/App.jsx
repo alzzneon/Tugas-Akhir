@@ -27,6 +27,7 @@ import Mobil from "./pages/Customer/Mobil";
 import Motor from "./pages/Customer/Motor";
 import Login from "./pages/Customer/Login";
 import Register from "./pages/Customer/Register";
+import SewaMobil from "./pages/Customer/SewaMobil";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -45,6 +46,8 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/mobil" element={<Mobil />} />
       <Route path="/motor" element={<Motor />} />
+
+      <Route path="/mobil/:id/sewa" element={<SewaMobil />} />
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
