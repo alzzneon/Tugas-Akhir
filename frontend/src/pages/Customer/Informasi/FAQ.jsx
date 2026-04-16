@@ -3,58 +3,27 @@ import Footer from "../../../Components/Public/Footer";
 
 export default function FAQ() {
   const faqItems = [
-    {
-      question: "Bagaimana cara menyewa kendaraan di RentCare?",
-      answer:
-        "Pilih kendaraan yang tersedia, isi data pengajuan penyewaan, lalu tunggu proses verifikasi dan persetujuan dari admin.",
-    },
-    {
-      question: "Apakah pengajuan sewa langsung disetujui?",
-      answer:
-        "Tidak. Sistem RentCare menggunakan alur pengajuan terlebih dahulu, kemudian admin akan memprosesnya.",
-    },
-    {
-      question: "Apakah saya bisa menyewa kendaraan yang sama pada tanggal yang bentrok?",
-      answer:
-        "Tidak bisa. Sistem harus menolak pengajuan apabila kendaraan yang sama sudah dipakai atau diajukan pada rentang tanggal yang sama.",
-    },
-    {
-      question: "Apa yang terjadi jika kendaraan terlambat dikembalikan?",
-      answer:
-        "Pelanggan dapat dikenakan denda keterlambatan sesuai kebijakan yang berlaku.",
-    },
+    { question: "Bagaimana cara menyewa kendaraan?", answer: "Pilih kendaraan, unggah dokumen identitas, dan tunggu verifikasi admin dalam 1x24 jam." },
+    { question: "Apakah pengajuan langsung disetujui?", answer: "Admin akan melakukan pengecekan ketersediaan unit dan validitas dokumen terlebih dahulu." },
+    { question: "Bagaimana jika jadwal bentrok?", answer: "Sistem secara otomatis menutup jadwal yang sudah dipesan untuk menghindari double-booking." }
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-white">
       <Header />
-
-      <section className="bg-red-500 text-white py-16 px-6 md:px-12">
-        <div className="max-w-5xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4">FAQ</h1>
-          <p className="text-lg leading-relaxed">
-            Berikut adalah pertanyaan yang sering diajukan oleh pelanggan
-            RentCare.
-          </p>
-        </div>
-      </section>
-
-      <main className="flex-1 py-12 px-6 md:px-12">
-        <div className="max-w-5xl mx-auto space-y-4">
+      <main className="flex-1 max-w-3xl mx-auto w-full py-20 px-6">
+        <h1 className="text-3xl font-bold mb-2 text-slate-900">Pertanyaan Umum</h1>
+        <p className="text-slate-500 mb-12">Temukan jawaban cepat untuk pertanyaan Anda seputar layanan RentCare.</p>
+        
+        <div className="space-y-10">
           {faqItems.map((item, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-            >
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                {item.question}
-              </h2>
-              <p className="text-gray-700 leading-relaxed">{item.answer}</p>
+            <div key={index} className="border-l-2 border-red-600 pl-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-2">{item.question}</h2>
+              <p className="text-slate-600 leading-relaxed">{item.answer}</p>
             </div>
           ))}
         </div>
       </main>
-
       <Footer />
     </div>
   );
