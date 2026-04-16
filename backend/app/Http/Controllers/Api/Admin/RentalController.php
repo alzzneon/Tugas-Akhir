@@ -87,7 +87,7 @@ class RentalController extends ResourceController
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'vehicle_id' => ['required', 'integer', 'exists:mt_vehicles,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after:start_date'],
@@ -122,9 +122,25 @@ class RentalController extends ResourceController
 
         $totalDays = max(1, (int) ceil($start->diffInHours($end) / 24));
         $totalPrice = $totalDays * (float) $vehicle->daily_rate;
+
         $directApprove = (bool) ($validated['direct_approve'] ?? true);
         $dpAmount = (float) ($validated['dp_amount'] ?? 0);
-        $remainingAmount = max(0, $totalPrice - $dpAmount);
+        $paidAmount = $dpAmount > 0 ? $dpAmount : 0;
+        $remainingAmount = max(0, $totalPrice - $paidAmount);
+
+        $initialPaymentStatus = 'unpaid';
+        if ($paidAmount > 0 && $remainingAmount > 0) {
+            $initialPaymentStatus = 'partial';
+        } elseif ($paidAmount > 0 && $remainingAmount <= 0) {
+            $initialPaymentStatus = 'paid';
+        }
+
+        $initialRentalStatus = $directApprove ? 'approved' : 'pending';
+        if ($initialPaymentStatus === 'partial') {
+            $initialRentalStatus = 'paid_partial';
+        } elseif ($initialPaymentStatus === 'paid') {
+            $initialRentalStatus = 'paid';
+        }
 
         $rental = DB::transaction(function () use (
             $validated,
@@ -134,29 +150,32 @@ class RentalController extends ResourceController
             $totalDays,
             $totalPrice,
             $directApprove,
-            $dpAmount,
+            $paidAmount,
             $remainingAmount,
+            $initialPaymentStatus,
+            $initialRentalStatus,
             $request,
             $hasRegisteredUser
         ) {
-            $status = $directApprove ? 'approved' : 'pending';
-
-            return Rental::create([
+            $rental = Rental::create([
                 'user_id' => $validated['user_id'] ?? null,
                 'vehicle_id' => $vehicle->id,
                 'start_date' => $start,
                 'end_date' => $end,
                 'total_date' => $totalDays,
                 'total_price' => $totalPrice,
-                'status' => $status,
-                'payment_status' => 'unpaid',
+                'status' => $initialRentalStatus,
+                'payment_status' => $initialPaymentStatus,
                 'payment_deadline' => $directApprove
                     ? now()->addHours((int) ($validated['payment_deadline_hours'] ?? 2))
                     : null,
                 'approved_at' => $directApprove ? now() : null,
                 'approved_by' => $directApprove ? optional($request->user())->id : null,
-                'dp_amount' => $dpAmount,
-                'paid_amount' => 0,
+                'rejected_at' => null,
+                'rejected_by' => null,
+                'rejection_reason' => null,
+                'dp_amount' => $paidAmount,
+                'paid_amount' => $paidAmount,
                 'remaining_amount' => $remainingAmount,
                 'booking_code' => $this->generateBookingCode(),
                 'notes' => $this->buildNotes(
@@ -168,6 +187,22 @@ class RentalController extends ResourceController
                     ]
                 ),
             ]);
+
+            if ($paidAmount > 0) {
+                Payment::create([
+                    'rental_id' => $rental->id,
+                    'amount' => $paidAmount,
+                    'payment_method' => 'manual',
+                    'payment_status' => 'paid',
+                    'payment_type' => 'dp',
+                    'provider' => 'manual',
+                    'provider_reference' => 'MANUAL-' . now()->format('YmdHis') . '-' . $rental->id,
+                    'notes' => 'DP awal saat pembuatan rental oleh admin',
+                    'paid_at' => now(),
+                ]);
+            }
+
+            return $rental;
         });
 
         $rental->load([
@@ -175,6 +210,8 @@ class RentalController extends ResourceController
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
+            'rejectedBy:id,full_name',
+            'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
         ]);
 
         return $this->created($this->transformRental($rental));
@@ -193,7 +230,11 @@ class RentalController extends ResourceController
         }
 
         $rental->update([
-            'status' => 'approved',
+            'status' => $this->deriveRentalStatusFromAmounts(
+                (float) $rental->paid_amount,
+                (float) $rental->total_price,
+                'approved'
+            ),
             'approved_at' => now(),
             'approved_by' => optional($request->user())->id,
             'payment_deadline' => now()->addHours((int) ($validated['payment_deadline_hours'] ?? 2)),
@@ -207,6 +248,7 @@ class RentalController extends ResourceController
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
+            'rejectedBy:id,full_name',
         ]);
 
         return $this->success($this->transformRental($rental), 'Rental berhasil di-approve.');
@@ -220,8 +262,8 @@ class RentalController extends ResourceController
 
         $rental = Rental::query()->findOrFail($id);
 
-        if (!in_array($rental->status, ['pending', 'approved'], true)) {
-            return $this->error('Rental tidak bisa di-reject dari status saat ini.', 422);
+        if (!in_array($rental->status, ['pending', 'approved', 'paid_partial'], true)) {
+            return $this->error('Rental tidak bisa ditolak dari status saat ini.', 422);
         }
 
         $rental->update([
@@ -236,6 +278,7 @@ class RentalController extends ResourceController
             'user:id,full_name,email,phone_number',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
+            'approvedBy:id,full_name',
             'rejectedBy:id,full_name',
         ]);
 
@@ -246,19 +289,22 @@ class RentalController extends ResourceController
     {
         $rental = Rental::query()->findOrFail($id);
 
-        if (!in_array($rental->status, ['paid', 'paid_partial'], true)) {
+        if (!in_array($rental->status, ['approved', 'paid_partial', 'paid'], true)) {
             return $this->error('Rental belum siap dijalankan.', 422);
         }
 
         $rental->update([
             'status' => 'ongoing',
-            'actual_pickup_at' => now(),
+            'actual_pickup_at' => $rental->actual_pickup_at ?: now(),
         ]);
 
         $rental->load([
             'user:id,full_name,email,phone_number',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
+            'approvedBy:id,full_name',
+            'rejectedBy:id,full_name',
+            'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
         ]);
 
         return $this->success($this->transformRental($rental), 'Rental mulai berjalan.');
@@ -271,7 +317,15 @@ class RentalController extends ResourceController
         ]);
 
         $rental = Rental::query()
-            ->with('vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours')
+            ->with([
+                'user:id,full_name,email,phone_number',
+                'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
+                'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
+                'approvedBy:id,full_name',
+                'rejectedBy:id,full_name',
+                'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
+                'lateFines',
+            ])
             ->findOrFail($id);
 
         if (!in_array($rental->status, ['ongoing', 'overdue'], true)) {
@@ -287,8 +341,18 @@ class RentalController extends ResourceController
             'actual_return_at' => $actualReturn,
         ]);
 
+        $rental->refresh()->load([
+            'user:id,full_name,email,phone_number',
+            'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
+            'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
+            'approvedBy:id,full_name',
+            'rejectedBy:id,full_name',
+            'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
+            'lateFines',
+        ]);
+
         return $this->success(
-            $this->transformRental($rental->fresh(['user', 'vehicle.type'])),
+            $this->transformRental($rental),
             'Rental selesai.'
         );
     }
@@ -308,18 +372,11 @@ class RentalController extends ResourceController
 
         DB::transaction(function () use ($validated, $rental) {
             $amount = (float) ($validated['amount'] ?? 0);
-
-            $updatePayload = [
-                'status' => $validated['status'],
-                'payment_status' => $validated['payment_status'],
-            ];
+            $paidAmount = (float) $rental->paid_amount;
+            $totalPrice = (float) $rental->total_price;
 
             if ($amount > 0) {
-                $paidAmount = (float) $rental->paid_amount + $amount;
-                $remainingAmount = max(0, (float) $rental->total_price - $paidAmount);
-
-                $updatePayload['paid_amount'] = $paidAmount;
-                $updatePayload['remaining_amount'] = $remainingAmount;
+                $paidAmount += $amount;
 
                 Payment::create([
                     'rental_id' => $rental->id,
@@ -334,15 +391,35 @@ class RentalController extends ResourceController
                 ]);
             }
 
-            if ($validated['status'] === 'ongoing' && empty($rental->actual_pickup_at)) {
-                $updatePayload['actual_pickup_at'] = now();
+            $remainingAmount = max(0, $totalPrice - $paidAmount);
+            $derivedPaymentStatus = $this->derivePaymentStatusFromAmounts($paidAmount, $totalPrice);
+            $requestedStatus = strtolower((string) $validated['status']);
+            $finalStatus = $requestedStatus;
+
+            if (in_array($requestedStatus, ['approved', 'paid_partial', 'paid'], true)) {
+                $finalStatus = $this->deriveRentalStatusFromAmounts($paidAmount, $totalPrice, 'approved');
             }
 
-            if ($validated['status'] === 'completed' && empty($rental->actual_return_at)) {
-                $updatePayload['actual_return_at'] = now();
+            if ($requestedStatus === 'completed' && empty($rental->actual_return_at)) {
+                $actualReturnAt = now();
+            } else {
+                $actualReturnAt = $rental->actual_return_at;
             }
 
-            $rental->update($updatePayload);
+            if ($requestedStatus === 'ongoing' && empty($rental->actual_pickup_at)) {
+                $actualPickupAt = now();
+            } else {
+                $actualPickupAt = $rental->actual_pickup_at;
+            }
+
+            $rental->update([
+                'status' => $finalStatus,
+                'payment_status' => $derivedPaymentStatus,
+                'paid_amount' => $paidAmount,
+                'remaining_amount' => $remainingAmount,
+                'actual_pickup_at' => $actualPickupAt,
+                'actual_return_at' => $actualReturnAt,
+            ]);
         });
 
         $rental->load([
@@ -364,11 +441,18 @@ class RentalController extends ResourceController
     {
         return Rental::query()
             ->where('vehicle_id', $vehicleId)
-            ->whereIn('status', ['pending', 'approved', 'waiting_payment', 'paid_partial', 'paid', 'ongoing', 'overdue'])
+            ->whereIn('status', [
+                'pending',
+                'approved',
+                'paid_partial',
+                'paid',
+                'ongoing',
+                'overdue',
+            ])
             ->when($ignoreRentalId, fn ($q) => $q->where('id', '!=', $ignoreRentalId))
             ->where(function ($q) use ($start, $end) {
                 $q->where('start_date', '<', $end)
-                  ->where('end_date', '>', $start);
+                    ->where('end_date', '>', $start);
             })
             ->exists();
     }
@@ -376,7 +460,7 @@ class RentalController extends ResourceController
     private function generateBookingCode(): string
     {
         $prefix = 'RNT-' . now()->format('Ymd');
-        $lastId = (int) Rental::query()->max('id') + 1;
+        $lastId = ((int) Rental::query()->max('id')) + 1;
 
         return $prefix . '-' . str_pad((string) $lastId, 4, '0', STR_PAD_LEFT);
     }
@@ -430,6 +514,32 @@ class RentalController extends ResourceController
         }
 
         return $result;
+    }
+
+    private function derivePaymentStatusFromAmounts(float $paidAmount, float $totalPrice): string
+    {
+        if ($paidAmount <= 0) {
+            return 'unpaid';
+        }
+
+        if ($paidAmount >= $totalPrice) {
+            return 'paid';
+        }
+
+        return 'partial';
+    }
+
+    private function deriveRentalStatusFromAmounts(float $paidAmount, float $totalPrice, string $default = 'approved'): string
+    {
+        if ($paidAmount <= 0) {
+            return $default;
+        }
+
+        if ($paidAmount >= $totalPrice) {
+            return 'paid';
+        }
+
+        return 'paid_partial';
     }
 
     private function transformRental(Rental $r): array

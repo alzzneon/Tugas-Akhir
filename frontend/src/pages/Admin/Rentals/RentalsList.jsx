@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import DataTable from "../../../Components/Admin/DataTable";
 import Modal from "../../../Components/Admin/Modal";
-import RentalForm from "./RentalForm";
 
 function Badge({ children, color = "gray" }) {
   const styles = {
@@ -15,14 +14,18 @@ function Badge({ children, color = "gray" }) {
   };
 
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[color] || styles.gray}`}>
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+        styles[color] || styles.gray
+      }`}
+    >
       {children}
     </span>
   );
 }
 
 function getStatusColor(status) {
-  switch ((status || "").toLowerCase()) {
+  switch (String(status || "").toLowerCase()) {
     case "pending":
       return "yellow";
     case "approved":
@@ -36,6 +39,7 @@ function getStatusColor(status) {
       return "red";
     case "ongoing":
     case "paid_partial":
+    case "overdue":
       return "indigo";
     default:
       return "gray";
@@ -43,7 +47,7 @@ function getStatusColor(status) {
 }
 
 function getPaymentStatusColor(status) {
-  switch ((status || "").toLowerCase()) {
+  switch (String(status || "").toLowerCase()) {
     case "paid":
       return "green";
     case "partial":
@@ -58,6 +62,107 @@ function getPaymentStatusColor(status) {
   }
 }
 
+function getRentalStatusLabel(status) {
+  switch (String(status || "").toLowerCase()) {
+    case "pending":
+      return "Menunggu Persetujuan";
+    case "approved":
+      return "Disetujui";
+    case "paid_partial":
+      return "Dibayar Sebagian";
+    case "paid":
+      return "Lunas";
+    case "ongoing":
+      return "Sedang Berjalan";
+    case "completed":
+      return "Selesai";
+    case "overdue":
+      return "Terlambat";
+    case "rejected":
+      return "Ditolak";
+    case "cancelled":
+      return "Dibatalkan";
+    case "expired":
+      return "Kedaluwarsa";
+    default:
+      return status || "-";
+  }
+}
+
+function getPaymentStatusLabel(status) {
+  switch (String(status || "").toLowerCase()) {
+    case "unpaid":
+      return "Belum Bayar";
+    case "partial":
+      return "Bayar Sebagian";
+    case "paid":
+      return "Sudah Bayar";
+    case "failed":
+      return "Gagal";
+    case "expired":
+      return "Kedaluwarsa";
+    default:
+      return status || "-";
+  }
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+
+  return d.toLocaleString("id-ID", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatCurrency(value) {
+  return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
+}
+
+function normalizeDateTimeLocal(value) {
+  if (!value) return "";
+  return String(value).slice(0, 16);
+}
+
+function getAllowedStatusOptions(row) {
+  const currentStatus = String(row?.status || "").toLowerCase();
+
+  const map = {
+    pending: ["pending", "approved", "rejected", "cancelled"],
+    approved: ["approved", "paid_partial", "paid", "ongoing", "rejected", "cancelled", "expired"],
+    paid_partial: ["paid_partial", "paid", "ongoing", "cancelled"],
+    paid: ["paid", "ongoing", "completed"],
+    ongoing: ["ongoing", "completed", "overdue"],
+    overdue: ["overdue", "completed"],
+    completed: ["completed"],
+    rejected: ["rejected"],
+    cancelled: ["cancelled"],
+    expired: ["expired"],
+  };
+
+  return map[currentStatus] || [currentStatus];
+}
+
+function getAllowedPaymentStatusOptions(row) {
+  const currentStatus = String(row?.status || "").toLowerCase();
+
+  if (["completed", "paid"].includes(currentStatus)) {
+    return ["paid"];
+  }
+
+  if (currentStatus === "paid_partial") {
+    return ["partial", "paid"];
+  }
+
+  return ["unpaid", "partial", "paid", "failed", "expired"];
+}
+
 export default function RentalsList({ type = "mobil" }) {
   const token = localStorage.getItem("token");
 
@@ -66,12 +171,33 @@ export default function RentalsList({ type = "mobil" }) {
   const [msg, setMsg] = useState("");
   const [q, setQ] = useState("");
 
+  const [users, setUsers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
+  const [customerMode, setCustomerMode] = useState("registered");
+  const [createErrors, setCreateErrors] = useState({});
+  const [createForm, setCreateForm] = useState({
+    user_id: "",
+    customer_name: "",
+    customer_phone: "",
+    customer_email: "",
+    vehicle_id: "",
+    start_date: "",
+    end_date: "",
+    notes: "",
+    direct_approve: true,
+    payment_deadline_hours: 2,
+    dp_amount: 0,
+  });
+  const [savingCreate, setSavingCreate] = useState(false);
+
   const [selectedRow, setSelectedRow] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
-
   const [editForm, setEditForm] = useState({
     status: "",
     payment_status: "",
@@ -92,13 +218,13 @@ export default function RentalsList({ type = "mobil" }) {
   }, [token]);
 
   const columns = [
-    { key: "booking_code", label: "Kode" },
+    { key: "booking_code", label: "Kode Booking" },
     { key: "penyewa", label: "Penyewa" },
     { key: "kendaraan", label: "Kendaraan" },
-    { key: "periode", label: "Periode" },
+    { key: "periode", label: "Periode Sewa" },
     { key: "total_price", label: "Total" },
     { key: "status", label: "Status Rental" },
-    { key: "payment_status", label: "Status Payment" },
+    { key: "payment_status", label: "Status Pembayaran" },
   ];
 
   async function fetchRentals() {
@@ -119,7 +245,7 @@ export default function RentalsList({ type = "mobil" }) {
 
       setRows(filtered);
     } catch (err) {
-      console.error("Gagal memuat rentals:", err);
+      console.error("Gagal memuat rental:", err);
       setMsg(err.response?.data?.message || "Gagal memuat data penyewaan.");
       setRows([]);
     } finally {
@@ -127,18 +253,45 @@ export default function RentalsList({ type = "mobil" }) {
     }
   }
 
+  async function fetchUsers() {
+    try {
+      setLoadingUsers(true);
+      const res = await api.get("/admin/users-for-rental");
+      setUsers(Array.isArray(res.data?.data) ? res.data.data : []);
+    } catch (err) {
+      console.error("Gagal memuat user:", err);
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
+
+  async function fetchVehicles() {
+    try {
+      setLoadingVehicles(true);
+      const res = await api.get("/admin/masters/vehicles", {
+        params: { type_code: type },
+      });
+      setVehicles(Array.isArray(res.data?.data) ? res.data.data : []);
+    } catch (err) {
+      console.error("Gagal memuat kendaraan:", err);
+      setVehicles([]);
+    } finally {
+      setLoadingVehicles(false);
+    }
+  }
+
   useEffect(() => {
     fetchRentals();
+    fetchUsers();
+    fetchVehicles();
   }, [type]);
 
   const filteredRows = rows.filter((row) => {
     const s = q.toLowerCase();
 
     const penyewaNama =
-      row.user?.full_name ||
-      row.manual_customer?.customer_name ||
-      "";
-
+      row.user?.full_name || row.manual_customer?.customer_name || "";
     const kendaraanNama = row.vehicle?.name || "";
     const bookingCode = row.booking_code || "";
     const plat = row.vehicle?.plate_number || "";
@@ -151,11 +304,182 @@ export default function RentalsList({ type = "mobil" }) {
     );
   });
 
+  function resetCreateForm() {
+    setCustomerMode("registered");
+    setCreateErrors({});
+    setCreateForm({
+      user_id: "",
+      customer_name: "",
+      customer_phone: "",
+      customer_email: "",
+      vehicle_id: "",
+      start_date: "",
+      end_date: "",
+      notes: "",
+      direct_approve: true,
+      payment_deadline_hours: 2,
+      dp_amount: 0,
+    });
+  }
+
+  function openCreateModal() {
+    resetCreateForm();
+    setOpenCreate(true);
+  }
+
+  function closeCreateModal() {
+    setOpenCreate(false);
+    resetCreateForm();
+  }
+
+  function handleCreateChange(e) {
+    const { name, value, type: inputType, checked } = e.target;
+
+    setCreateForm((prev) => ({
+      ...prev,
+      [name]: inputType === "checkbox" ? checked : value,
+    }));
+
+    setCreateErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+
+    setMsg("");
+  }
+
+  function handleCustomerModeChange(mode) {
+    setCustomerMode(mode);
+    setMsg("");
+    setCreateErrors({});
+    setCreateForm((prev) => ({
+      ...prev,
+      user_id: "",
+      customer_name: "",
+      customer_phone: "",
+      customer_email: "",
+    }));
+  }
+
+  function validateCreateForm() {
+    const nextErrors = {};
+
+    if (customerMode === "registered" && !createForm.user_id) {
+      nextErrors.user_id = "User wajib dipilih.";
+    }
+
+    if (customerMode === "manual") {
+      if (!String(createForm.customer_name || "").trim()) {
+        nextErrors.customer_name = "Nama penyewa wajib diisi.";
+      }
+
+      if (!String(createForm.customer_phone || "").trim()) {
+        nextErrors.customer_phone = "Nomor telepon wajib diisi.";
+      }
+    }
+
+    if (!createForm.vehicle_id) {
+      nextErrors.vehicle_id = "Kendaraan wajib dipilih.";
+    }
+
+    if (!createForm.start_date) {
+      nextErrors.start_date = "Tanggal mulai wajib diisi.";
+    }
+
+    if (!createForm.end_date) {
+      nextErrors.end_date = "Tanggal selesai wajib diisi.";
+    }
+
+    if (createForm.start_date && createForm.end_date) {
+      const start = new Date(createForm.start_date);
+      const end = new Date(createForm.end_date);
+
+      if (end <= start) {
+        nextErrors.end_date =
+          "Tanggal selesai harus lebih besar dari tanggal mulai.";
+      }
+    }
+
+    if (Number(createForm.payment_deadline_hours) < 1) {
+      nextErrors.payment_deadline_hours = "Batas pembayaran minimal 1 jam.";
+    }
+
+    if (Number(createForm.dp_amount) < 0) {
+      nextErrors.dp_amount = "DP tidak boleh negatif.";
+    }
+
+    setCreateErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+ async function handleSubmitCreate(e) {
+  e.preventDefault();
+
+  if (!validateCreateForm()) {
+    return;
+  }
+
+  try {
+    setSavingCreate(true);
+    setMsg("");
+
+    const payload = {
+      vehicle_id: Number(createForm.vehicle_id),
+      start_date: createForm.start_date,
+      end_date: createForm.end_date,
+      notes: createForm.notes || null,
+      direct_approve: !!createForm.direct_approve,
+      payment_deadline_hours: Number(createForm.payment_deadline_hours),
+      dp_amount: Number(createForm.dp_amount || 0),
+    };
+
+    if (customerMode === "registered") {
+      payload.user_id = createForm.user_id;
+    } else {
+      payload.customer_name = createForm.customer_name;
+      payload.customer_phone = createForm.customer_phone;
+      payload.customer_email = createForm.customer_email || null;
+    }
+
+    await api.post("/admin/rentals", payload);
+
+    closeCreateModal();
+    await fetchRentals();
+  } catch (err) {
+    console.error("Gagal membuat rental:", err);
+
+    if (err.response?.status === 422) {
+      const validationErrors = err.response?.data?.errors || {};
+      const mapped = {};
+
+      Object.keys(validationErrors).forEach((key) => {
+        mapped[key] = Array.isArray(validationErrors[key])
+          ? validationErrors[key][0]
+          : validationErrors[key];
+      });
+
+      setCreateErrors(mapped);
+    }
+
+    setMsg(
+      err.response?.data?.message ||
+        "Terjadi kesalahan saat menyimpan penyewaan."
+    );
+  } finally {
+    setSavingCreate(false);
+  }
+}
+
   function openEditModal(row) {
+    const statusOptions = getAllowedStatusOptions(row);
+    const paymentOptions = getAllowedPaymentStatusOptions(row);
+
     setSelectedRow(row);
     setEditForm({
-      status: row.status || "approved",
-      payment_status: row.payment_status || "unpaid",
+      status: statusOptions.includes(row.status) ? row.status : statusOptions[0],
+      payment_status: paymentOptions.includes(row.payment_status)
+        ? row.payment_status
+        : paymentOptions[0],
       payment_type: "full",
       payment_method: "transfer",
       amount: "",
@@ -179,10 +503,28 @@ export default function RentalsList({ type = "mobil" }) {
 
   function handleEditChange(e) {
     const { name, value } = e.target;
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+
+    setEditForm((prev) => {
+      const next = {
+        ...prev,
+        [name]: value,
+      };
+
+      if (name === "status") {
+        if (value === "paid") {
+          next.payment_status = "paid";
+        } else if (value === "paid_partial" && next.payment_status === "unpaid") {
+          next.payment_status = "partial";
+        } else if (
+          ["completed", "ongoing"].includes(value) &&
+          Number(selectedRow?.remaining_amount || 0) <= 0
+        ) {
+          next.payment_status = "paid";
+        }
+      }
+
+      return next;
+    });
   }
 
   async function handleSaveEdit(e) {
@@ -206,27 +548,52 @@ export default function RentalsList({ type = "mobil" }) {
       closeEditModal();
       await fetchRentals();
     } catch (err) {
-      console.error(err);
+      console.error("Gagal update rental:", err);
       setMsg(err.response?.data?.message || "Gagal memperbarui rental.");
     } finally {
       setSavingEdit(false);
     }
   }
 
+  async function handleMarkOngoing(row) {
+    try {
+      setMsg("");
+      await api.patch(`/admin/rentals/${row.id}/mark-ongoing`);
+      await fetchRentals();
+    } catch (err) {
+      console.error("Gagal memulai rental:", err);
+      setMsg(
+        err.response?.data?.message ||
+          "Gagal mengubah status menjadi sedang berjalan."
+      );
+    }
+  }
+
+  async function handleComplete(row) {
+    try {
+      setMsg("");
+      await api.patch(`/admin/rentals/${row.id}/complete`);
+      await fetchRentals();
+    } catch (err) {
+      console.error("Gagal menyelesaikan rental:", err);
+      setMsg(err.response?.data?.message || "Gagal menyelesaikan rental.");
+    }
+  }
+
   return (
     <div>
       {msg && (
-        <div className="mb-4 rounded-xl border p-3 text-sm text-red-600 bg-red-50">
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
           {msg}
         </div>
       )}
 
       <DataTable
         title={`Penyewaan ${type === "mobil" ? "Mobil" : "Motor"}`}
-        subtitle="Kelola data booking, approve, pembayaran, dan status sewa."
+        subtitle="Kelola booking, pembayaran, dan status penyewaan."
         searchValue={q}
         onSearchChange={setQ}
-        onCreate={() => setOpenCreate(true)}
+        onCreate={openCreateModal}
         createLabel="+ Tambah"
         columns={columns}
         rows={filteredRows}
@@ -234,9 +601,7 @@ export default function RentalsList({ type = "mobil" }) {
         showActions
         renderCell={({ row, col }) => {
           const penyewaNama =
-            row.user?.full_name ||
-            row.manual_customer?.customer_name ||
-            "-";
+            row.user?.full_name || row.manual_customer?.customer_name || "-";
 
           const penyewaKontak =
             row.user?.email ||
@@ -268,22 +633,22 @@ export default function RentalsList({ type = "mobil" }) {
           if (col.key === "periode") {
             return (
               <div>
-                <div>{row.start_date || "-"}</div>
+                <div>{formatDateTime(row.start_date)}</div>
                 <div className="text-xs text-gray-500">
-                  sampai {row.end_date || "-"}
+                  sampai {formatDateTime(row.end_date)}
                 </div>
               </div>
             );
           }
 
           if (col.key === "total_price") {
-            return `Rp ${Number(row.total_price || 0).toLocaleString("id-ID")}`;
+            return formatCurrency(row.total_price);
           }
 
           if (col.key === "status") {
             return (
               <Badge color={getStatusColor(row.status)}>
-                {row.status || "-"}
+                {getRentalStatusLabel(row.status)}
               </Badge>
             );
           }
@@ -291,7 +656,7 @@ export default function RentalsList({ type = "mobil" }) {
           if (col.key === "payment_status") {
             return (
               <Badge color={getPaymentStatusColor(row.payment_status)}>
-                {row.payment_status || "-"}
+                {getPaymentStatusLabel(row.payment_status)}
               </Badge>
             );
           }
@@ -299,12 +664,36 @@ export default function RentalsList({ type = "mobil" }) {
           return String(row[col.key] ?? "");
         }}
         actionsRender={({ row }) => (
-          <button
-            onClick={() => openEditModal(row)}
-            className="rounded-lg bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700"
-          >
-            Edit
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => openEditModal(row)}
+              className="rounded-lg bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-700"
+            >
+              Edit
+            </button>
+
+            {["approved", "paid_partial", "paid"].includes(
+              String(row.status || "").toLowerCase()
+            ) && (
+              <button
+                onClick={() => handleMarkOngoing(row)}
+                className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+              >
+                Mulai
+              </button>
+            )}
+
+            {["ongoing", "overdue"].includes(
+              String(row.status || "").toLowerCase()
+            ) && (
+              <button
+                onClick={() => handleComplete(row)}
+                className="rounded-lg bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
+              >
+                Selesaikan
+              </button>
+            )}
+          </div>
         )}
       />
 
@@ -312,16 +701,269 @@ export default function RentalsList({ type = "mobil" }) {
         open={openCreate}
         size="lg"
         title={`Tambah Penyewaan ${type === "mobil" ? "Mobil" : "Motor"}`}
-        onClose={() => setOpenCreate(false)}
+        onClose={closeCreateModal}
       >
-        <RentalForm
-          type={type}
-          onCancel={() => setOpenCreate(false)}
-          onCreated={async () => {
-            setOpenCreate(false);
-            await fetchRentals();
-          }}
-        />
+        <form onSubmit={handleSubmitCreate} className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-medium">Mode Penyewa</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => handleCustomerModeChange("registered")}
+                className={`rounded-xl border px-4 py-2 text-sm ${
+                  customerMode === "registered"
+                    ? "border-indigo-600 bg-indigo-600 text-white"
+                    : "border-gray-300 bg-white text-gray-700"
+                }`}
+              >
+                Pilih User Terdaftar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleCustomerModeChange("manual")}
+                className={`rounded-xl border px-4 py-2 text-sm ${
+                  customerMode === "manual"
+                    ? "border-indigo-600 bg-indigo-600 text-white"
+                    : "border-gray-300 bg-white text-gray-700"
+                }`}
+              >
+                Input Manual
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {customerMode === "registered" ? (
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Pilih User
+                </label>
+                <select
+                  name="user_id"
+                  value={createForm.user_id}
+                  onChange={handleCreateChange}
+                  disabled={loadingUsers || savingCreate}
+                  className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="">
+                    {loadingUsers ? "Memuat user..." : "-- Pilih User --"}
+                  </option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name} - {user.email || user.phone_number}
+                    </option>
+                  ))}
+                </select>
+                {createErrors.user_id && (
+                  <p className="mt-1 text-xs text-red-600">{createErrors.user_id}</p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">
+                    Nama Penyewa
+                  </label>
+                  <input
+                    type="text"
+                    name="customer_name"
+                    value={createForm.customer_name}
+                    onChange={handleCreateChange}
+                    placeholder="Masukkan nama penyewa"
+                    disabled={savingCreate}
+                    className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                  {createErrors.customer_name && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {createErrors.customer_name}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700">
+                    Nomor Telepon
+                  </label>
+                  <input
+                    type="text"
+                    name="customer_phone"
+                    value={createForm.customer_phone}
+                    onChange={handleCreateChange}
+                    placeholder="08xxxxxxxxxx"
+                    disabled={savingCreate}
+                    className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                  {createErrors.customer_phone && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {createErrors.customer_phone}
+                    </p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="customer_email"
+                    value={createForm.customer_email}
+                    onChange={handleCreateChange}
+                    placeholder="email@contoh.com"
+                    disabled={savingCreate}
+                    className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                  />
+                  {createErrors.customer_email && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {createErrors.customer_email}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">
+                Pilih Kendaraan
+              </label>
+              <select
+                name="vehicle_id"
+                value={createForm.vehicle_id}
+                onChange={handleCreateChange}
+                disabled={loadingVehicles || savingCreate}
+                className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="">
+                  {loadingVehicles ? "Memuat kendaraan..." : "-- Pilih Kendaraan --"}
+                </option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.name} - {vehicle.plate_number} - Rp{" "}
+                    {Number(vehicle.daily_rate || 0).toLocaleString("id-ID")}/hari
+                  </option>
+                ))}
+              </select>
+              {createErrors.vehicle_id && (
+                <p className="mt-1 text-xs text-red-600">{createErrors.vehicle_id}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">
+                Mulai Sewa
+              </label>
+              <input
+                type="datetime-local"
+                name="start_date"
+                value={normalizeDateTimeLocal(createForm.start_date)}
+                onChange={handleCreateChange}
+                disabled={savingCreate}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+              {createErrors.start_date && (
+                <p className="mt-1 text-xs text-red-600">{createErrors.start_date}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">
+                Selesai Sewa
+              </label>
+              <input
+                type="datetime-local"
+                name="end_date"
+                value={normalizeDateTimeLocal(createForm.end_date)}
+                onChange={handleCreateChange}
+                disabled={savingCreate}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+              {createErrors.end_date && (
+                <p className="mt-1 text-xs text-red-600">{createErrors.end_date}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">
+                Batas Pembayaran (jam)
+              </label>
+              <input
+                type="number"
+                min="1"
+                name="payment_deadline_hours"
+                value={createForm.payment_deadline_hours}
+                onChange={handleCreateChange}
+                disabled={savingCreate}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+              {createErrors.payment_deadline_hours && (
+                <p className="mt-1 text-xs text-red-600">
+                  {createErrors.payment_deadline_hours}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">DP Awal</label>
+              <input
+                type="number"
+                min="0"
+                name="dp_amount"
+                value={createForm.dp_amount}
+                onChange={handleCreateChange}
+                disabled={savingCreate}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+              {createErrors.dp_amount && (
+                <p className="mt-1 text-xs text-red-600">{createErrors.dp_amount}</p>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-gray-700">Catatan</label>
+              <textarea
+                name="notes"
+                value={createForm.notes}
+                onChange={handleCreateChange}
+                rows="3"
+                placeholder="Catatan tambahan"
+                disabled={savingCreate}
+                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="direct_approve"
+                  checked={createForm.direct_approve}
+                  onChange={handleCreateChange}
+                  disabled={savingCreate}
+                />
+                Langsung setujui saat dibuat admin
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={closeCreateModal}
+              className="rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50"
+            >
+              Batal
+            </button>
+
+            <button
+              type="submit"
+              disabled={savingCreate}
+              className="rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {savingCreate ? "Menyimpan..." : "Simpan"}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       <Modal
@@ -333,80 +975,111 @@ export default function RentalsList({ type = "mobil" }) {
         {selectedRow && (
           <form onSubmit={handleSaveEdit} className="space-y-4">
             <div className="rounded-xl border bg-gray-50 p-4 text-sm">
-              <div><strong>Kode:</strong> {selectedRow.booking_code}</div>
-              <div><strong>Penyewa:</strong> {selectedRow.user?.full_name || selectedRow.manual_customer?.customer_name || "-"}</div>
-              <div><strong>Kendaraan:</strong> {selectedRow.vehicle?.name || "-"}</div>
-              <div><strong>Total:</strong> Rp {Number(selectedRow.total_price || 0).toLocaleString("id-ID")}</div>
-              <div><strong>Sudah Dibayar:</strong> Rp {Number(selectedRow.paid_amount || 0).toLocaleString("id-ID")}</div>
-              <div><strong>Sisa:</strong> Rp {Number(selectedRow.remaining_amount || 0).toLocaleString("id-ID")}</div>
+              <div>
+                <strong>Kode:</strong> {selectedRow.booking_code}
+              </div>
+              <div>
+                <strong>Penyewa:</strong>{" "}
+                {selectedRow.user?.full_name ||
+                  selectedRow.manual_customer?.customer_name ||
+                  "-"}
+              </div>
+              <div>
+                <strong>Kendaraan:</strong> {selectedRow.vehicle?.name || "-"}
+              </div>
+              <div>
+                <strong>Total:</strong> {formatCurrency(selectedRow.total_price)}
+              </div>
+              <div>
+                <strong>Sudah Dibayar:</strong>{" "}
+                {formatCurrency(selectedRow.paid_amount)}
+              </div>
+              <div>
+                <strong>Sisa:</strong>{" "}
+                {formatCurrency(selectedRow.remaining_amount)}
+              </div>
+              <div>
+                <strong>Status Saat Ini:</strong>{" "}
+                {getRentalStatusLabel(selectedRow.status)}
+              </div>
+              <div>
+                <strong>Status Pembayaran Saat Ini:</strong>{" "}
+                {getPaymentStatusLabel(selectedRow.payment_status)}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="text-sm font-medium text-gray-700">Status Rental</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Status Rental
+                </label>
                 <select
                   name="status"
                   value={editForm.status}
                   onChange={handleEditChange}
-                  className="mt-2 w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                  className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm"
                 >
-                  <option value="pending">pending</option>
-                  <option value="approved">approved</option>
-                  <option value="paid_partial">paid_partial</option>
-                  <option value="paid">paid</option>
-                  <option value="ongoing">ongoing</option>
-                  <option value="completed">completed</option>
-                  <option value="rejected">rejected</option>
-                  <option value="cancelled">cancelled</option>
-                  <option value="expired">expired</option>
+                  {getAllowedStatusOptions(selectedRow).map((status) => (
+                    <option key={status} value={status}>
+                      {getRentalStatusLabel(status)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700">Status Payment</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Status Pembayaran
+                </label>
                 <select
                   name="payment_status"
                   value={editForm.payment_status}
                   onChange={handleEditChange}
-                  className="mt-2 w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                  className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm"
                 >
-                  <option value="unpaid">unpaid</option>
-                  <option value="partial">partial</option>
-                  <option value="paid">paid</option>
-                  <option value="failed">failed</option>
-                  <option value="expired">expired</option>
+                  {getAllowedPaymentStatusOptions(selectedRow).map((status) => (
+                    <option key={status} value={status}>
+                      {getPaymentStatusLabel(status)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700">Tipe Payment</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Tipe Pembayaran
+                </label>
                 <select
                   name="payment_type"
                   value={editForm.payment_type}
                   onChange={handleEditChange}
-                  className="mt-2 w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                  className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm"
                 >
-                  <option value="dp">dp</option>
-                  <option value="full">full</option>
-                  <option value="settlement">settlement</option>
+                  <option value="dp">DP</option>
+                  <option value="full">Full</option>
+                  <option value="settlement">Pelunasan</option>
                 </select>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700">Metode Payment</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Metode Pembayaran
+                </label>
                 <select
                   name="payment_method"
                   value={editForm.payment_method}
                   onChange={handleEditChange}
-                  className="mt-2 w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                  className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm"
                 >
-                  <option value="transfer">transfer</option>
-                  <option value="cash">cash</option>
+                  <option value="transfer">Transfer</option>
+                  <option value="cash">Cash</option>
                 </select>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700">Nominal Tambahan</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Nominal Tambahan
+                </label>
                 <input
                   type="number"
                   name="amount"
@@ -419,7 +1092,9 @@ export default function RentalsList({ type = "mobil" }) {
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-sm font-medium text-gray-700">Catatan</label>
+                <label className="text-sm font-medium text-gray-700">
+                  Catatan
+                </label>
                 <textarea
                   name="notes"
                   rows="3"
@@ -443,7 +1118,7 @@ export default function RentalsList({ type = "mobil" }) {
               <button
                 type="submit"
                 disabled={savingEdit}
-                className="rounded-xl bg-indigo-600 px-4 py-2 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60"
+                className="rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
               >
                 {savingEdit ? "Menyimpan..." : "Simpan"}
               </button>
