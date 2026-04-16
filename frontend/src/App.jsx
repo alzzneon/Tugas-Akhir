@@ -29,6 +29,11 @@ import Login from "./pages/Customer/Login";
 import Register from "./pages/Customer/Register";
 import SewaMobil from "./pages/Customer/SewaMobil";
 
+import TentangPerusahaan from "./pages/Customer/Informasi/TentangPerusahaan";
+import SyaratKetentuan from "./pages/Customer/Informasi/SyaratKetentuan";
+import KebijakanPrivasi from "./pages/Customer/Informasi/KebijakanPrivasi";
+import FAQ from "./pages/Customer/Informasi/FAQ";
+
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
 
@@ -51,6 +56,11 @@ export default function App() {
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
+      <Route path="/tentang" element={<TentangPerusahaan />} />
+      <Route path="/syarat" element={<SyaratKetentuan />} />
+      <Route path="/kebijakan" element={<KebijakanPrivasi />} />
+      <Route path="/faq" element={<FAQ />} />
 
       {/* ADMIN LOGIN */}
       <Route path="/admin/login" element={<LoginAdmin />} />
