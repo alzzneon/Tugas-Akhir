@@ -4,7 +4,6 @@ import axios from "axios";
 
 export default function Register() {
   const navigate = useNavigate();
-
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -18,30 +17,24 @@ export default function Register() {
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const res = await axios.post("http://127.0.0.1:8000/api/register", form);
-
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
-
       navigate("/");
     } catch (err) {
       if (err.response?.data?.errors) {
-        const firstError = Object.values(err.response.data.errors)[0][0];
+        const firstError = Object.values(err.response.data.errors);
         setError(firstError);
       } else {
-        setError(err.response?.data?.message || "Register gagal");
+        setError(err.response?.data?.message || "Pendaftaran gagal.");
       }
     } finally {
       setLoading(false);
@@ -49,131 +42,122 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
-      <div className="w-full max-w-md bg-white rounded-xl shadow p-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">Daftar Customer</h1>
-
-        {error && (
-          <div className="mb-4 bg-red-100 text-red-600 px-4 py-3 rounded-lg text-sm leading-relaxed">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="full_name" className="block mb-1 font-medium">
-              Nama Lengkap
-            </label>
-            <input
-              id="full_name"
-              type="text"
-              name="full_name"
-              value={form.full_name}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-red-300"
-              placeholder="Masukkan nama lengkap"
-              required
-            />
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12 font-sans">
+      <div className="w-full max-w-xl">
+        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-12">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-black text-slate-900">Buat Akun Baru</h1>
+            <p className="text-slate-500 mt-2">Lengkapi data untuk kemudahan verifikasi sewa</p>
           </div>
 
-          <div>
-            <label htmlFor="email" className="block mb-1 font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-red-300"
-              placeholder="Masukkan email"
-              required
-            />
-          </div>
+          {error && (
+            <div className="mb-8 bg-red-50 text-red-600 px-5 py-3 rounded-2xl text-sm border border-red-100">
+              {error}
+            </div>
+          )}
 
-          <div>
-            <label htmlFor="phone_number" className="block mb-1 font-medium">
-              Nomor HP
-            </label>
-            <input
-              id="phone_number"
-              type="text"
-              name="phone_number"
-              value={form.phone_number}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-red-300"
-              placeholder="Masukkan nomor HP"
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Full Name */}
+            <div className="md:col-span-2">
+              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nama Lengkap</label>
+              <input
+                name="full_name"
+                type="text"
+                value={form.full_name}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                placeholder="Sesuai KTP"
+                required
+              />
+            </div>
 
-          <div>
-            <label htmlFor="address" className="block mb-1 font-medium">
-              Alamat
-            </label>
-            <textarea
-              id="address"
-              name="address"
-              value={form.address}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-red-300"
-              placeholder="Masukkan alamat"
-              rows="3"
-              required
-            />
-          </div>
+            {/* Email */}
+            <div>
+              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email</label>
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                placeholder="nama@email.com"
+                required
+              />
+            </div>
 
-          <div>
-            <label htmlFor="password" className="block mb-1 font-medium">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-red-300"
-              placeholder="Masukkan password"
-              required
-            />
-          </div>
+            {/* Phone */}
+            <div>
+              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nomor HP</label>
+              <input
+                name="phone_number"
+                type="text"
+                value={form.phone_number}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                placeholder="0812..."
+                required
+              />
+            </div>
 
-          <div>
-            <label
-              htmlFor="password_confirmation"
-              className="block mb-1 font-medium"
-            >
-              Konfirmasi Password
-            </label>
-            <input
-              id="password_confirmation"
-              type="password"
-              name="password_confirmation"
-              value={form.password_confirmation}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-red-300"
-              placeholder="Ulangi password"
-              required
-            />
-          </div>
+            {/* Address */}
+            <div className="md:col-span-2">
+              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Alamat Domisili</label>
+              <textarea
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                placeholder="Alamat lengkap saat ini"
+                rows="2"
+                required
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-500 text-white py-2.5 rounded-lg hover:bg-red-600 disabled:opacity-70"
-          >
-            {loading ? "Loading..." : "Daftar"}
-          </button>
-        </form>
+            {/* Password */}
+            <div>
+              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+              <input
+                name="password"
+                type="password"
+                value={form.password}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
-        <p className="text-center mt-4 text-sm">
-          Sudah punya akun?{" "}
-          <Link to="/login" className="text-red-500 font-medium hover:underline">
-            Login
-          </Link>
-        </p>
+            {/* Confirm Password */}
+            <div>
+              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Konfirmasi</label>
+              <input
+                name="password_confirmation"
+                type="password"
+                value={form.password_confirmation}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                placeholder="Ulangi password"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-2 mt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+              >
+                {loading ? "Mendaftarkan Akun..." : "Daftar Akun Sekarang"}
+              </button>
+              <p className="text-center mt-6 text-sm text-slate-500">
+                Sudah memiliki akun?{" "}
+                <Link to="/login" className="text-red-600 font-bold hover:underline">
+                  Login di sini
+                </Link>
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

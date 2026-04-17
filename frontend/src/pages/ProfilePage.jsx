@@ -24,27 +24,25 @@ function InputField({
   icon: Icon,
 }) {
   return (
-    <div>
-      <label className="mb-2 block text-sm font-medium text-gray-700">
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
         {label}
       </label>
-
-      <div className="relative">
+      <div className="relative group">
         {Icon && (
           <Icon
             size={18}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors"
           />
         )}
-
         <input
           type={type}
           name={name}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 disabled:bg-gray-50 disabled:text-gray-500"
-          style={Icon ? { paddingLeft: "2.6rem" } : undefined}
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 outline-none transition-all focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-600/5 disabled:bg-slate-100 disabled:text-slate-400"
+          style={Icon ? { paddingLeft: "3rem" } : undefined}
         />
       </div>
     </div>
@@ -61,27 +59,25 @@ function TextareaField({
   icon: Icon,
 }) {
   return (
-    <div>
-      <label className="mb-2 block text-sm font-medium text-gray-700">
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
         {label}
       </label>
-
-      <div className="relative">
+      <div className="relative group">
         {Icon && (
           <Icon
             size={18}
-            className="pointer-events-none absolute left-3 top-4 text-gray-400"
+            className="absolute left-4 top-4 text-slate-400 group-focus-within:text-red-600 transition-colors"
           />
         )}
-
         <textarea
           name={name}
           value={value}
           onChange={onChange}
           rows={rows}
           placeholder={placeholder}
-          className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 disabled:bg-gray-50 disabled:text-gray-500"
-          style={Icon ? { paddingLeft: "2.6rem" } : undefined}
+          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 outline-none transition-all focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-600/5"
+          style={Icon ? { paddingLeft: "3rem" } : undefined}
         />
       </div>
     </div>
@@ -121,10 +117,7 @@ export default function ProfilePage() {
   async function fetchProfile() {
     try {
       setLoading(true);
-      setErrorMessage("");
-
       const data = await adminFetch("/api/profile");
-
       setForm({
         full_name: data.full_name || "",
         email: data.email || "",
@@ -136,13 +129,10 @@ export default function ProfilePage() {
       });
     } catch (error) {
       if (error.message === "UNAUTHORIZED") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("admin_user");
         navigate("/admin/login", { replace: true });
         return;
       }
-
-      setErrorMessage(error.message || "Gagal memuat profile");
+      setErrorMessage("Gagal memuat profil.");
     } finally {
       setLoading(false);
     }
@@ -152,48 +142,27 @@ export default function ProfilePage() {
     const { name, value } = e.target;
     setProfileMessage("");
     setErrorMessage("");
-
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   function handlePasswordChange(e) {
     const { name, value } = e.target;
     setPasswordMessage("");
     setErrorMessage("");
-
-    setPasswordForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
   }
 
   async function handleProfileSubmit(e) {
     e.preventDefault();
-
     try {
       setSavingProfile(true);
-      setProfileMessage("");
-      setErrorMessage("");
-
       await adminFetch("/api/profile", {
         method: "PUT",
-        body: JSON.stringify({
-          full_name: form.full_name,
-          email: form.email,
-          phone_number: form.phone_number,
-          address: form.address,
-          birth_place: form.birth_place,
-          birth_date: form.birth_date || null,
-        }),
+        body: JSON.stringify(form),
       });
-
-      setProfileMessage("Profile berhasil diperbarui.");
-      fetchProfile();
+      setProfileMessage("Profil berhasil diperbarui.");
     } catch (error) {
-      setErrorMessage(error.message || "Gagal memperbarui profile");
+      setErrorMessage(error.message || "Gagal memperbarui profil.");
     } finally {
       setSavingProfile(false);
     }
@@ -201,34 +170,20 @@ export default function ProfilePage() {
 
   async function handlePasswordSubmit(e) {
     e.preventDefault();
-
     if (passwordForm.new_password !== passwordForm.new_password_confirmation) {
       setErrorMessage("Konfirmasi password baru tidak cocok.");
       return;
     }
-
     try {
       setSavingPassword(true);
-      setPasswordMessage("");
-      setErrorMessage("");
-
       await adminFetch("/api/profile/password", {
         method: "PUT",
-        body: JSON.stringify({
-          current_password: passwordForm.current_password,
-          new_password: passwordForm.new_password,
-          new_password_confirmation: passwordForm.new_password_confirmation,
-        }),
+        body: JSON.stringify(passwordForm),
       });
-
       setPasswordMessage("Password berhasil diperbarui.");
-      setPasswordForm({
-        current_password: "",
-        new_password: "",
-        new_password_confirmation: "",
-      });
+      setPasswordForm({ current_password: "", new_password: "", new_password_confirmation: "" });
     } catch (error) {
-      setErrorMessage(error.message || "Gagal memperbarui password");
+      setErrorMessage(error.message || "Gagal memperbarui password.");
     } finally {
       setSavingPassword(false);
     }
@@ -241,240 +196,118 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 px-4 py-8 md:px-6">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 w-48 rounded bg-gray-200" />
-              <div className="h-4 w-72 rounded bg-gray-100" />
-              <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="h-14 rounded-2xl bg-gray-100" />
-                <div className="h-14 rounded-2xl bg-gray-100" />
-                <div className="h-14 rounded-2xl bg-gray-100" />
-                <div className="h-14 rounded-2xl bg-gray-100" />
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 px-4 py-8 md:px-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        {/* Header */}
-        <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-          <div className="h-24 bg-gradient-to-r from-indigo-600 via-indigo-500 to-sky-500" />
+    <div className="min-h-screen bg-slate-50 pb-20 font-sans">
+      {/* Dynamic Header */}
+      <div className="bg-slate-900 text-white pt-16 pb-24 px-6">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="h-20 w-20 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
+              <User size={38} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Pengaturan Profil</h1>
+              <p className="text-slate-400 mt-1">Kelola data personal dan keamanan akun Anda</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-sm font-medium border border-white/10 self-start md:self-center"
+          >
+            <ArrowLeft size={18} /> Kembali
+          </button>
+        </div>
+      </div>
 
-          <div className="px-6 pb-6">
-            <div className="-mt-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded-3xl border-4 border-white bg-white shadow-md">
-                  <User size={34} className="text-indigo-600" />
-                </div>
+      <div className="max-w-5xl mx-auto px-6 -mt-12 space-y-8">
+        {/* Role Badge */}
+        <div className="flex justify-end">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-700 text-xs font-bold uppercase tracking-widest">
+            <ShieldCheck size={14} className="text-red-600" />
+            Akses: <span className="text-red-600">{roleLabel}</span>
+          </div>
+        </div>
 
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                    Profile
-                  </h1>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Kelola data akun dan ubah password Anda
-                  </p>
+        {/* Notifications */}
+        {(errorMessage || profileMessage || passwordMessage) && (
+          <div className={`p-4 rounded-2xl text-sm font-medium border animate-in fade-in slide-in-from-top-2 ${
+            errorMessage ? "bg-red-50 border-red-100 text-red-600" : "bg-green-50 border-green-100 text-green-700"
+          }`}>
+            {errorMessage || profileMessage || passwordMessage}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Form */}
+          <div className="lg:col-span-2 space-y-8">
+            <section className="bg-white rounded-3xl p-8 shadow-xl shadow-slate-200/50 border border-slate-100">
+              <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-50">
+                <div className="p-2 bg-red-50 rounded-xl text-red-600">
+                  <User size={20} />
                 </div>
+                <h2 className="text-lg font-bold text-slate-900">Informasi Pribadi</h2>
               </div>
 
-              <div className="flex items-center gap-3">
+              <form onSubmit={handleProfileSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <InputField label="Nama Lengkap" name="full_name" value={form.full_name} onChange={handleProfileChange} icon={User} />
+                  </div>
+                  <InputField label="Email Address" name="email" value={form.email} onChange={handleProfileChange} type="email" icon={Mail} />
+                  <InputField label="Nomor Telepon" name="phone_number" value={form.phone_number} onChange={handleProfileChange} icon={Phone} />
+                  <InputField label="Tempat Lahir" name="birth_place" value={form.birth_place} onChange={handleProfileChange} icon={MapPinned} />
+                  <InputField label="Tanggal Lahir" name="birth_date" value={form.birth_date} onChange={handleProfileChange} type="date" icon={CalendarDays} />
+                  <div className="md:col-span-2">
+                    <TextareaField label="Alamat Lengkap" name="address" value={form.address} onChange={handleProfileChange} icon={MapPin} />
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-8 py-4 text-sm font-bold text-white transition-all hover:bg-slate-900 shadow-lg shadow-red-100 disabled:opacity-50"
+                  >
+                    <Save size={18} />
+                    {savingProfile ? "Menyimpan..." : "Simpan Perubahan"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+
+          {/* Sidebar - Password */}
+          <div className="lg:col-span-1">
+            <section className="bg-white rounded-3xl p-8 shadow-xl shadow-slate-200/50 border border-slate-100 sticky top-8">
+              <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-50">
+                <div className="p-2 bg-slate-50 rounded-xl text-slate-600">
+                  <KeyRound size={20} />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">Keamanan</h2>
+              </div>
+
+              <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                <InputField label="Password Saat Ini" name="current_password" type="password" value={passwordForm.current_password} onChange={handlePasswordChange} />
+                <InputField label="Password Baru" name="new_password" type="password" value={passwordForm.new_password} onChange={handlePasswordChange} />
+                <InputField label="Konfirmasi Baru" name="new_password_confirmation" type="password" value={passwordForm.new_password_confirmation} onChange={handlePasswordChange} />
+
                 <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  type="submit"
+                  disabled={savingPassword}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-sm font-bold text-white transition-all hover:bg-red-600 disabled:opacity-50 mt-4"
                 >
-                  <ArrowLeft size={18} />
-                  Kembali
+                  <KeyRound size={18} />
+                  {savingPassword ? "Updating..." : "Ubah Password"}
                 </button>
-
-                <div className="inline-flex items-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2.5 text-sm font-medium capitalize text-indigo-700">
-                  <ShieldCheck size={18} />
-                  {roleLabel}
-                </div>
-              </div>
-            </div>
+              </form>
+            </section>
           </div>
-        </div>
-
-        {/* Messages */}
-        {errorMessage && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {errorMessage}
-          </div>
-        )}
-
-        {profileMessage && (
-          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {profileMessage}
-          </div>
-        )}
-
-        {passwordMessage && (
-          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {passwordMessage}
-          </div>
-        )}
-
-        {/* Profile Form */}
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="rounded-2xl bg-indigo-50 p-3 text-indigo-600">
-              <User size={20} />
-            </div>
-
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Edit Profile
-              </h2>
-              <p className="text-sm text-gray-500">
-                Perbarui informasi pribadi Anda di bawah ini.
-              </p>
-            </div>
-          </div>
-
-          <form
-            onSubmit={handleProfileSubmit}
-            className="grid grid-cols-1 gap-5 md:grid-cols-2"
-          >
-            <div className="md:col-span-2">
-              <InputField
-                label="Nama Lengkap"
-                name="full_name"
-                value={form.full_name}
-                onChange={handleProfileChange}
-                placeholder="Masukkan nama lengkap"
-                icon={User}
-              />
-            </div>
-
-            <InputField
-              label="Email"
-              name="email"
-              value={form.email}
-              onChange={handleProfileChange}
-              type="email"
-              placeholder="Masukkan email"
-              icon={Mail}
-            />
-
-            <InputField
-              label="Nomor Telepon"
-              name="phone_number"
-              value={form.phone_number}
-              onChange={handleProfileChange}
-              placeholder="Masukkan nomor telepon"
-              icon={Phone}
-            />
-
-            <InputField
-              label="Tempat Lahir"
-              name="birth_place"
-              value={form.birth_place}
-              onChange={handleProfileChange}
-              placeholder="Masukkan tempat lahir"
-              icon={MapPinned}
-            />
-
-            <InputField
-              label="Tanggal Lahir"
-              name="birth_date"
-              value={form.birth_date}
-              onChange={handleProfileChange}
-              type="date"
-              icon={CalendarDays}
-            />
-
-            <div className="md:col-span-2">
-              <TextareaField
-                label="Alamat"
-                name="address"
-                value={form.address}
-                onChange={handleProfileChange}
-                placeholder="Masukkan alamat lengkap"
-                icon={MapPin}
-                rows={4}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <button
-                type="submit"
-                disabled={savingProfile}
-                className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Save size={18} />
-                {savingProfile ? "Menyimpan..." : "Simpan Perubahan"}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Password Form */}
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="rounded-2xl bg-gray-100 p-3 text-gray-700">
-              <KeyRound size={20} />
-            </div>
-
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Ubah Password
-              </h2>
-              <p className="text-sm text-gray-500">
-                Gunakan password yang kuat dan mudah Anda ingat.
-              </p>
-            </div>
-          </div>
-
-          <form
-            onSubmit={handlePasswordSubmit}
-            className="grid grid-cols-1 gap-5 md:grid-cols-3"
-          >
-            <InputField
-              label="Password Saat Ini"
-              name="current_password"
-              value={passwordForm.current_password}
-              onChange={handlePasswordChange}
-              type="password"
-              placeholder="Masukkan password saat ini"
-            />
-
-            <InputField
-              label="Password Baru"
-              name="new_password"
-              value={passwordForm.new_password}
-              onChange={handlePasswordChange}
-              type="password"
-              placeholder="Masukkan password baru"
-            />
-
-            <InputField
-              label="Konfirmasi Password Baru"
-              name="new_password_confirmation"
-              value={passwordForm.new_password_confirmation}
-              onChange={handlePasswordChange}
-              type="password"
-              placeholder="Ulangi password baru"
-            />
-
-            <div className="md:col-span-3">
-              <button
-                type="submit"
-                disabled={savingPassword}
-                className="inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <KeyRound size={18} />
-                {savingPassword ? "Menyimpan..." : "Ubah Password"}
-              </button>
-            </div>
-          </form>
         </div>
       </div>
     </div>
