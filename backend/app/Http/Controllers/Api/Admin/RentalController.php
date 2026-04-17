@@ -157,36 +157,44 @@ class RentalController extends ResourceController
             $request,
             $hasRegisteredUser
         ) {
-            $rental = Rental::create([
-                'user_id' => $validated['user_id'] ?? null,
-                'vehicle_id' => $vehicle->id,
-                'start_date' => $start,
-                'end_date' => $end,
-                'total_date' => $totalDays,
-                'total_price' => $totalPrice,
-                'status' => $initialRentalStatus,
-                'payment_status' => $initialPaymentStatus,
-                'payment_deadline' => $directApprove
-                    ? now()->addHours((int) ($validated['payment_deadline_hours'] ?? 2))
-                    : null,
-                'approved_at' => $directApprove ? now() : null,
-                'approved_by' => $directApprove ? optional($request->user())->id : null,
-                'rejected_at' => null,
-                'rejected_by' => null,
-                'rejection_reason' => null,
-                'dp_amount' => $paidAmount,
-                'paid_amount' => $paidAmount,
-                'remaining_amount' => $remainingAmount,
-                'booking_code' => $this->generateBookingCode(),
-                'notes' => $this->buildNotes(
-                    $validated['notes'] ?? null,
-                    $hasRegisteredUser ? null : [
-                        'customer_name' => $validated['customer_name'] ?? null,
-                        'customer_phone' => $validated['customer_phone'] ?? null,
-                        'customer_email' => $validated['customer_email'] ?? null,
-                    ]
-                ),
-            ]);
+
+$rental = Rental::create([
+    'user_id' => $validated['user_id'] ?? null,
+    'vehicle_id' => $vehicle->id,
+    'start_date' => $start,
+    'end_date' => $end,
+    'total_date' => $totalDays,
+    'total_price' => $totalPrice,
+    'status' => $initialRentalStatus,
+    'payment_status' => $initialPaymentStatus,
+    'payment_deadline' => $directApprove
+        ? now()->addHours((int) ($validated['payment_deadline_hours'] ?? 2))
+        : null,
+    'approved_at' => $directApprove ? now() : null,
+    'approved_by' => $directApprove ? optional($request->user())->id : null,
+    'rejected_at' => null,
+    'rejected_by' => null,
+    'rejection_reason' => null,
+    'dp_amount' => $paidAmount,
+    'paid_amount' => $paidAmount,
+    'remaining_amount' => $remainingAmount,
+    'booking_code' => $this->generateBookingCode(),
+
+    // INI YANG HILANG
+    'customer_name' => $validated['customer_name'] ?? null,
+    'customer_phone' => $validated['customer_phone'] ?? null,
+    'customer_email' => $validated['customer_email'] ?? null,
+
+    // notes tetap boleh
+    'notes' => $this->buildNotes(
+        $validated['notes'] ?? null,
+        $hasRegisteredUser ? null : [
+            'customer_name' => $validated['customer_name'] ?? null,
+            'customer_phone' => $validated['customer_phone'] ?? null,
+            'customer_email' => $validated['customer_email'] ?? null,
+        ]
+    ),
+]);
 
             if ($paidAmount > 0) {
                 Payment::create([
@@ -544,8 +552,17 @@ class RentalController extends ResourceController
 
     private function transformRental(Rental $r): array
     {
-        $manualCustomer = $this->extractManualCustomer($r->notes);
+        $manualFromNotes = $this->extractManualCustomer($r->notes);
 
+        $manualCustomer = null;
+
+        if (!$r->user_id) {
+            $manualCustomer = [
+                'customer_name' => $r->customer_name ?? ($manualFromNotes['customer_name'] ?? null),
+                'customer_phone' => $r->customer_phone ?? ($manualFromNotes['customer_phone'] ?? null),
+                'customer_email' => $r->customer_email ?? ($manualFromNotes['customer_email'] ?? null),
+            ];
+        }
         return [
             'id' => $r->id,
             'booking_code' => $r->booking_code,

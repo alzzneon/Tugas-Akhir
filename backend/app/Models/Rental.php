@@ -32,6 +32,9 @@ class Rental extends Model
         'overdue_started_at',
         'booking_code',
         'notes',
+        'customer_name',
+        'customer_phone',
+        'customer_email',
     ];
 
     protected $casts = [
