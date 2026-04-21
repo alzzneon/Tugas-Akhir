@@ -2,21 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Public/Header";
 import Footer from "../../Components/Public/Footer";
+import VehicleCard from "../../Components/Public/VehicleCard";
 
 const API_URL = "http://localhost:8000/api/public/vehicles?type=MOTOR";
 const IMAGE_BASE = "http://localhost:8000/storage/";
-
-function rupiah(n) {
-  try {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }).format(Number(n || 0));
-  } catch {
-    return `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
-  }
-}
 
 export default function Motor() {
   const navigate = useNavigate();
@@ -39,7 +28,6 @@ export default function Motor() {
 
         const data = await res.json();
         const rows = Array.isArray(data) ? data : data?.data || [];
-
         setMotors(rows);
       } catch (e) {
         setError(e.message || "Terjadi kesalahan");
@@ -65,16 +53,12 @@ export default function Motor() {
     });
   }, [motors, q]);
 
-  const handleRentNow = (motor) => {
-    navigate(`/motor/${motor.id}/sewa`);
-  };
-
-  const handleDetail = (motor) => {
+  const handleCreateOrder = (motor) => {
     navigate(`/motor/${motor.id}/sewa`);
   };
 
   if (loading) {
-    return <div className="p-6 text-center">Loading motors...</div>;
+    return <div className="p-6 text-center">Memuat motor...</div>;
   }
 
   if (error) {
@@ -111,90 +95,15 @@ export default function Motor() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {filtered.map((v) => {
-                const isActive = Boolean(v.is_active);
-
-                return (
-                  <div
-                    key={v.id}
-                    className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm"
-                  >
-                    <div className="h-44 bg-gray-100">
-                      <img
-                        src={v.image ? IMAGE_BASE + v.image : "/placeholder-bike.jpg"}
-                        alt={v.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {v.name}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            {v.vehicle_brand_name || "-"}
-                          </p>
-                        </div>
-
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full border ${
-                            isActive
-                              ? "bg-green-50 text-green-700 border-green-200"
-                              : "bg-gray-100 text-gray-600 border-gray-200"
-                          }`}
-                        >
-                          {isActive ? "Tersedia" : "Tidak tersedia"}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-                        <div className="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
-                          <div className="text-gray-500">Transmisi</div>
-                          <div className="font-medium text-gray-900">
-                            {v.transmission_name || "-"}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
-                          <div className="text-gray-500">Tahun</div>
-                          <div className="font-medium text-gray-900">
-                            {v.year || "-"}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
-                          <div className="text-gray-500">Harga/Hari</div>
-                          <div className="font-medium text-gray-900">
-                            {rupiah(v.daily_rate)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 flex gap-3">
-                        <button
-                          type="button"
-                          className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium hover:bg-gray-50"
-                          onClick={() => handleDetail(v)}
-                        >
-                          Detail
-                        </button>
-
-                        <button
-                          type="button"
-                          className="flex-1 rounded-xl bg-red-500 text-white px-4 py-2.5 text-sm font-semibold hover:bg-red-600 disabled:opacity-60"
-                          disabled={!isActive}
-                          onClick={() => handleRentNow(v)}
-                        >
-                          Sewa
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {filtered.map((motor) => (
+                <VehicleCard
+                  key={motor.id}
+                  item={motor}
+                  imageBase={IMAGE_BASE}
+                  placeholder="/placeholder-bike.jpg"
+                  onActionClick={() => handleCreateOrder(motor)}
+                />
+              ))}
             </div>
           )}
         </div>

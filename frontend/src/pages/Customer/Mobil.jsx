@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Public/Header";
 import Footer from "../../Components/Public/Footer";
+import VehicleCard from "../../Components/Public/VehicleCard";
 
 const API_URL = "http://localhost:8000/api/public/vehicles?type=MOBIL";
 const IMAGE_BASE = "http://localhost:8000/storage/";
@@ -10,18 +11,23 @@ export default function Mobil() {
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [q, setQ] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
+        setError("");
+
         const res = await fetch(API_URL);
-        if (!res.ok) throw new Error("Failed to load vehicles");
+        if (!res.ok) throw new Error("Gagal memuat data mobil");
+
         const data = await res.json();
-        setCars(data);
+        const rows = Array.isArray(data) ? data : data?.data || [];
+        setCars(rows);
       } catch (e) {
-        setError(e.message || "Something went wrong");
+        setError(e.message || "Terjadi kesalahan");
       } finally {
         setLoading(false);
       }
@@ -30,65 +36,73 @@ export default function Mobil() {
     load();
   }, []);
 
-  const handleRentNow = (car) => {
+  const filtered = useMemo(() => {
+    const key = q.trim().toLowerCase();
+
+    return cars.filter((v) => {
+      if (!key) return true;
+
+      return (
+        String(v.name || "").toLowerCase().includes(key) ||
+        String(v.vehicle_brand_name || "").toLowerCase().includes(key) ||
+        String(v.transmission_name || "").toLowerCase().includes(key)
+      );
+    });
+  }, [cars, q]);
+
+  const handleCreateOrder = (car) => {
     navigate(`/mobil/${car.id}/sewa`);
   };
 
   if (loading) {
-    return <div className="p-6 text-center">Loading cars...</div>;
+    return <div className="p-6 text-center">Memuat mobil...</div>;
   }
 
   if (error) {
     return <div className="p-6 text-center text-red-600">{error}</div>;
   }
 
-  if (cars.length === 0) {
-    return <div className="p-6 text-center text-gray-500">No cars available.</div>;
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
 
-      <main className="p-6 flex-1">
-        <h1 className="text-2xl font-bold mb-6">Mobil</h1>
+      <section className="bg-white border-b border-gray-200 px-12 py-10">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-900">Daftar Mobil</h1>
+          <p className="text-gray-600 mt-2">
+            Pilih mobil favoritmu untuk perjalanan yang nyaman dan aman.
+          </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {cars.map((car) => (
-            <div
-              key={car.id}
-              className="rounded-xl border bg-white overflow-hidden hover:shadow-lg transition"
-            >
-              <div className="h-48 bg-gray-100 overflow-hidden">
-                <img
-                  src={car.image ? IMAGE_BASE + car.image : "/placeholder-car.jpg"}
-                  alt={car.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
+          <div className="mt-6">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari mobil (nama/merek/transmisi)..."
+              className="w-full md:w-[520px] rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-red-200"
+            />
+          </div>
+        </div>
+      </section>
 
-              <div className="p-4">
-                <h3 className="font-semibold text-lg">{car.name}</h3>
-
-                <div className="text-sm text-gray-500 mt-1">
-                  {car.vehicle_brand_name}
-                  {car.transmission_name ? ` • ${car.transmission_name}` : ""}
-                </div>
-
-                <div className="mt-3 text-indigo-600 font-bold">
-                  Rp {Number(car.daily_rate).toLocaleString("id-ID")} / day
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleRentNow(car)}
-                  className="mt-4 w-full rounded-lg bg-indigo-600 text-white py-2 font-semibold hover:bg-indigo-700 transition cursor-pointer"
-                >
-                  Rent Now
-                </button>
-              </div>
+      <main className="px-12 py-10 flex-1">
+        <div className="max-w-7xl mx-auto">
+          {filtered.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-600">
+              Tidak ada mobil yang cocok dengan pencarianmu.
             </div>
-          ))}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {filtered.map((car) => (
+                <VehicleCard
+                  key={car.id}
+                  item={car}
+                  imageBase={IMAGE_BASE}
+                  placeholder="/placeholder-car.jpg"
+                  onActionClick={() => handleCreateOrder(car)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
