@@ -29,6 +29,7 @@ import Register from "./pages/Customer/Register";
 import ForgotPassword from "./pages/Customer/ForgotPassword";
 import SewaMobil from "./pages/Customer/SewaMobil";
 import SewaMotor from "./pages/Customer/SewaMotor";
+import PesananSaya from "./pages/Customer/PesananSaya";
 
 import TentangPerusahaan from "./pages/Customer/Informasi/TentangPerusahaan";
 import SyaratKetentuan from "./pages/Customer/Informasi/SyaratKetentuan";
@@ -108,6 +109,16 @@ export default function App() {
           </ProtectedCustomerRoute>
         }
       />
+
+      <Route
+        path="/pesanan-saya"
+        element={
+          <ProtectedCustomerRoute>
+            <PesananSaya />
+          </ProtectedCustomerRoute>
+        }
+      />
+      
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />

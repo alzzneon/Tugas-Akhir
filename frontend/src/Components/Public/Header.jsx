@@ -158,10 +158,10 @@ export default function Header() {
                     Profil
                   </Link>
                   <Link
-                    to="/riwayat"
+                    to="/pesanan-saya"
                     className="block px-5 py-3 text-gray-900 hover:bg-gray-50"
                   >
-                    Riwayat
+                    Pesanan Saya
                   </Link>
                   <hr className="my-2 border-gray-200" />
                   <button
