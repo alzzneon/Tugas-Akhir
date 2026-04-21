@@ -28,6 +28,7 @@ import Login from "./pages/Customer/Login";
 import Register from "./pages/Customer/Register";
 import ForgotPassword from "./pages/Customer/ForgotPassword";
 import SewaMobil from "./pages/Customer/SewaMobil";
+import SewaMotor from "./pages/Customer/SewaMotor";
 
 import TentangPerusahaan from "./pages/Customer/Informasi/TentangPerusahaan";
 import SyaratKetentuan from "./pages/Customer/Informasi/SyaratKetentuan";
@@ -98,7 +99,15 @@ export default function App() {
           </ProtectedCustomerRoute>
         }
       />
-
+      
+      <Route
+        path="/motor/:id/sewa"
+        element={
+          <ProtectedCustomerRoute>
+            <SewaMotor />
+          </ProtectedCustomerRoute>
+        }
+      />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
