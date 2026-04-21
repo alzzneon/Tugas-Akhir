@@ -1,4 +1,4 @@
-<?php
+<!-- <?php
 
 namespace App\Http\Controllers\Api;
 
@@ -141,4 +141,4 @@ class PublicRentalController extends Controller
             })
             ->exists();
     }
-}
+} -->

@@ -38,7 +38,6 @@ function getStatusColor(status) {
     case "expired":
       return "red";
     case "ongoing":
-    case "paid_partial":
     case "overdue":
       return "indigo";
     default:
@@ -50,8 +49,6 @@ function getPaymentStatusColor(status) {
   switch (String(status || "").toLowerCase()) {
     case "paid":
       return "green";
-    case "partial":
-      return "indigo";
     case "failed":
     case "expired":
       return "red";
@@ -68,8 +65,6 @@ function getRentalStatusLabel(status) {
       return "Menunggu Persetujuan";
     case "approved":
       return "Disetujui";
-    case "paid_partial":
-      return "Dibayar Sebagian";
     case "paid":
       return "Lunas";
     case "ongoing":
@@ -93,8 +88,6 @@ function getPaymentStatusLabel(status) {
   switch (String(status || "").toLowerCase()) {
     case "unpaid":
       return "Belum Bayar";
-    case "partial":
-      return "Bayar Sebagian";
     case "paid":
       return "Sudah Bayar";
     case "failed":
@@ -103,6 +96,17 @@ function getPaymentStatusLabel(status) {
       return "Kedaluwarsa";
     default:
       return status || "-";
+  }
+}
+
+function getPickupMethodLabel(value) {
+  switch (String(value || "").toLowerCase()) {
+    case "pickup":
+      return "Diambil sendiri";
+    case "delivery":
+      return "Diantar";
+    default:
+      return "-";
   }
 }
 
@@ -135,8 +139,7 @@ function getAllowedStatusOptions(row) {
 
   const map = {
     pending: ["pending", "approved", "rejected", "cancelled"],
-    approved: ["approved", "paid_partial", "paid", "ongoing", "rejected", "cancelled", "expired"],
-    paid_partial: ["paid_partial", "paid", "ongoing", "cancelled"],
+    approved: ["approved", "paid", "rejected", "cancelled", "expired"],
     paid: ["paid", "ongoing", "completed"],
     ongoing: ["ongoing", "completed", "overdue"],
     overdue: ["overdue", "completed"],
@@ -152,15 +155,11 @@ function getAllowedStatusOptions(row) {
 function getAllowedPaymentStatusOptions(row) {
   const currentStatus = String(row?.status || "").toLowerCase();
 
-  if (["completed", "paid"].includes(currentStatus)) {
+  if (["paid", "completed", "ongoing", "overdue"].includes(currentStatus)) {
     return ["paid"];
   }
 
-  if (currentStatus === "paid_partial") {
-    return ["partial", "paid"];
-  }
-
-  return ["unpaid", "partial", "paid", "failed", "expired"];
+  return ["unpaid", "paid", "failed", "expired"];
 }
 
 export default function RentalsList({ type = "mobil" }) {
@@ -189,10 +188,11 @@ export default function RentalsList({ type = "mobil" }) {
     vehicle_id: "",
     start_date: "",
     end_date: "",
+    pickup_method: "pickup",
+    delivery_address: "",
     notes: "",
     direct_approve: true,
     payment_deadline_hours: 2,
-    dp_amount: 0,
   });
   const [savingCreate, setSavingCreate] = useState(false);
 
@@ -222,6 +222,7 @@ export default function RentalsList({ type = "mobil" }) {
     { key: "penyewa", label: "Penyewa" },
     { key: "kendaraan", label: "Kendaraan" },
     { key: "periode", label: "Periode Sewa" },
+    { key: "pickup_method", label: "Metode Pengambilan" },
     { key: "total_price", label: "Total" },
     { key: "status", label: "Status Rental" },
     { key: "payment_status", label: "Status Pembayaran" },
@@ -315,10 +316,11 @@ export default function RentalsList({ type = "mobil" }) {
       vehicle_id: "",
       start_date: "",
       end_date: "",
+      pickup_method: "pickup",
+      delivery_address: "",
       notes: "",
       direct_approve: true,
       payment_deadline_hours: 2,
-      dp_amount: 0,
     });
   }
 
@@ -335,10 +337,17 @@ export default function RentalsList({ type = "mobil" }) {
   function handleCreateChange(e) {
     const { name, value, type: inputType, checked } = e.target;
 
-    setCreateForm((prev) => ({
-      ...prev,
-      [name]: inputType === "checkbox" ? checked : value,
-    }));
+    setCreateForm((prev) => {
+      const nextValue = inputType === "checkbox" ? checked : value;
+
+      return {
+        ...prev,
+        [name]: nextValue,
+        ...(name === "pickup_method" && nextValue === "pickup"
+          ? { delivery_address: "" }
+          : {}),
+      };
+    });
 
     setCreateErrors((prev) => ({
       ...prev,
@@ -400,75 +409,87 @@ export default function RentalsList({ type = "mobil" }) {
       }
     }
 
-    if (Number(createForm.payment_deadline_hours) < 1) {
-      nextErrors.payment_deadline_hours = "Batas pembayaran minimal 1 jam.";
+    if (!createForm.pickup_method) {
+      nextErrors.pickup_method = "Metode pengambilan wajib dipilih.";
     }
 
-    if (Number(createForm.dp_amount) < 0) {
-      nextErrors.dp_amount = "DP tidak boleh negatif.";
+    if (
+      createForm.pickup_method === "delivery" &&
+      !String(createForm.delivery_address || "").trim()
+    ) {
+      nextErrors.delivery_address =
+        "Alamat pengantaran wajib diisi jika metode pengambilan adalah diantar.";
+    }
+
+    if (Number(createForm.payment_deadline_hours) < 1) {
+      nextErrors.payment_deadline_hours = "Batas pembayaran minimal 1 jam.";
     }
 
     setCreateErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
 
- async function handleSubmitCreate(e) {
-  e.preventDefault();
+  async function handleSubmitCreate(e) {
+    e.preventDefault();
 
-  if (!validateCreateForm()) {
-    return;
-  }
-
-  try {
-    setSavingCreate(true);
-    setMsg("");
-
-    const payload = {
-      vehicle_id: Number(createForm.vehicle_id),
-      start_date: createForm.start_date,
-      end_date: createForm.end_date,
-      notes: createForm.notes || null,
-      direct_approve: !!createForm.direct_approve,
-      payment_deadline_hours: Number(createForm.payment_deadline_hours),
-      dp_amount: Number(createForm.dp_amount || 0),
-    };
-
-    if (customerMode === "registered") {
-      payload.user_id = createForm.user_id;
-    } else {
-      payload.customer_name = createForm.customer_name;
-      payload.customer_phone = createForm.customer_phone;
-      payload.customer_email = createForm.customer_email || null;
+    if (!validateCreateForm()) {
+      return;
     }
 
-    await api.post("/admin/rentals", payload);
+    try {
+      setSavingCreate(true);
+      setMsg("");
 
-    closeCreateModal();
-    await fetchRentals();
-  } catch (err) {
-    console.error("Gagal membuat rental:", err);
+      const payload = {
+        vehicle_id: Number(createForm.vehicle_id),
+        start_date: createForm.start_date,
+        end_date: createForm.end_date,
+        pickup_method: createForm.pickup_method,
+        delivery_address:
+          createForm.pickup_method === "delivery"
+            ? createForm.delivery_address.trim()
+            : null,
+        notes: createForm.notes?.trim() || null,
+        direct_approve: !!createForm.direct_approve,
+        payment_deadline_hours: Number(createForm.payment_deadline_hours),
+      };
 
-    if (err.response?.status === 422) {
-      const validationErrors = err.response?.data?.errors || {};
-      const mapped = {};
+      if (customerMode === "registered") {
+        payload.user_id = createForm.user_id;
+      } else {
+        payload.customer_name = createForm.customer_name.trim();
+        payload.customer_phone = createForm.customer_phone.trim();
+        payload.customer_email = createForm.customer_email?.trim() || null;
+      }
 
-      Object.keys(validationErrors).forEach((key) => {
-        mapped[key] = Array.isArray(validationErrors[key])
-          ? validationErrors[key][0]
-          : validationErrors[key];
-      });
+      await api.post("/admin/rentals", payload);
 
-      setCreateErrors(mapped);
+      closeCreateModal();
+      await fetchRentals();
+    } catch (err) {
+      console.error("Gagal membuat rental:", err);
+
+      if (err.response?.status === 422) {
+        const validationErrors = err.response?.data?.errors || {};
+        const mapped = {};
+
+        Object.keys(validationErrors).forEach((key) => {
+          mapped[key] = Array.isArray(validationErrors[key])
+            ? validationErrors[key][0]
+            : validationErrors[key];
+        });
+
+        setCreateErrors(mapped);
+      }
+
+      setMsg(
+        err.response?.data?.message ||
+          "Terjadi kesalahan saat menyimpan penyewaan."
+      );
+    } finally {
+      setSavingCreate(false);
     }
-
-    setMsg(
-      err.response?.data?.message ||
-        "Terjadi kesalahan saat menyimpan penyewaan."
-    );
-  } finally {
-    setSavingCreate(false);
   }
-}
 
   function openEditModal(row) {
     const statusOptions = getAllowedStatusOptions(row);
@@ -510,17 +531,8 @@ export default function RentalsList({ type = "mobil" }) {
         [name]: value,
       };
 
-      if (name === "status") {
-        if (value === "paid") {
-          next.payment_status = "paid";
-        } else if (value === "paid_partial" && next.payment_status === "unpaid") {
-          next.payment_status = "partial";
-        } else if (
-          ["completed", "ongoing"].includes(value) &&
-          Number(selectedRow?.remaining_amount || 0) <= 0
-        ) {
-          next.payment_status = "paid";
-        }
+      if (name === "status" && value === "paid") {
+        next.payment_status = "paid";
       }
 
       return next;
@@ -539,7 +551,7 @@ export default function RentalsList({ type = "mobil" }) {
       await api.patch(`/admin/rentals/${selectedRow.id}/update-status-payment`, {
         status: editForm.status,
         payment_status: editForm.payment_status,
-        payment_type: editForm.payment_type,
+        payment_type: "full",
         payment_method: editForm.payment_method,
         amount: editForm.amount ? Number(editForm.amount) : 0,
         notes: editForm.notes || null,
@@ -641,6 +653,21 @@ export default function RentalsList({ type = "mobil" }) {
             );
           }
 
+          if (col.key === "pickup_method") {
+            return (
+              <div>
+                <div className="font-medium">
+                  {getPickupMethodLabel(row.pickup_method)}
+                </div>
+                {row.pickup_method === "delivery" && row.delivery_address ? (
+                  <div className="text-xs text-gray-500">
+                    {row.delivery_address}
+                  </div>
+                ) : null}
+              </div>
+            );
+          }
+
           if (col.key === "total_price") {
             return formatCurrency(row.total_price);
           }
@@ -672,9 +699,7 @@ export default function RentalsList({ type = "mobil" }) {
               Edit
             </button>
 
-            {["approved", "paid_partial", "paid"].includes(
-              String(row.status || "").toLowerCase()
-            ) && (
+            {["paid"].includes(String(row.status || "").toLowerCase()) && (
               <button
                 onClick={() => handleMarkOngoing(row)}
                 className="rounded-lg bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
@@ -885,6 +910,25 @@ export default function RentalsList({ type = "mobil" }) {
 
             <div>
               <label className="text-sm font-medium text-gray-700">
+                Metode Pengambilan
+              </label>
+              <select
+                name="pickup_method"
+                value={createForm.pickup_method}
+                onChange={handleCreateChange}
+                disabled={savingCreate}
+                className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="pickup">Diambil sendiri</option>
+                <option value="delivery">Diantar</option>
+              </select>
+              {createErrors.pickup_method && (
+                <p className="mt-1 text-xs text-red-600">{createErrors.pickup_method}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">
                 Batas Pembayaran (jam)
               </label>
               <input
@@ -903,21 +947,27 @@ export default function RentalsList({ type = "mobil" }) {
               )}
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700">DP Awal</label>
-              <input
-                type="number"
-                min="0"
-                name="dp_amount"
-                value={createForm.dp_amount}
-                onChange={handleCreateChange}
-                disabled={savingCreate}
-                className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-              {createErrors.dp_amount && (
-                <p className="mt-1 text-xs text-red-600">{createErrors.dp_amount}</p>
-              )}
-            </div>
+            {createForm.pickup_method === "delivery" && (
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Alamat Pengantaran
+                </label>
+                <textarea
+                  name="delivery_address"
+                  value={createForm.delivery_address}
+                  onChange={handleCreateChange}
+                  rows="3"
+                  placeholder="Masukkan alamat pengantaran lengkap"
+                  disabled={savingCreate}
+                  className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+                {createErrors.delivery_address && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {createErrors.delivery_address}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="md:col-span-2">
               <label className="text-sm font-medium text-gray-700">Catatan</label>
@@ -988,15 +1038,18 @@ export default function RentalsList({ type = "mobil" }) {
                 <strong>Kendaraan:</strong> {selectedRow.vehicle?.name || "-"}
               </div>
               <div>
+                <strong>Metode Pengambilan:</strong>{" "}
+                {getPickupMethodLabel(selectedRow.pickup_method)}
+              </div>
+              {selectedRow.pickup_method === "delivery" &&
+              selectedRow.delivery_address ? (
+                <div>
+                  <strong>Alamat Pengantaran:</strong>{" "}
+                  {selectedRow.delivery_address}
+                </div>
+              ) : null}
+              <div>
                 <strong>Total:</strong> {formatCurrency(selectedRow.total_price)}
-              </div>
-              <div>
-                <strong>Sudah Dibayar:</strong>{" "}
-                {formatCurrency(selectedRow.paid_amount)}
-              </div>
-              <div>
-                <strong>Sisa:</strong>{" "}
-                {formatCurrency(selectedRow.remaining_amount)}
               </div>
               <div>
                 <strong>Status Saat Ini:</strong>{" "}
@@ -1055,9 +1108,7 @@ export default function RentalsList({ type = "mobil" }) {
                   onChange={handleEditChange}
                   className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-sm"
                 >
-                  <option value="dp">DP</option>
                   <option value="full">Full</option>
-                  <option value="settlement">Pelunasan</option>
                 </select>
               </div>
 
@@ -1078,7 +1129,7 @@ export default function RentalsList({ type = "mobil" }) {
 
               <div>
                 <label className="text-sm font-medium text-gray-700">
-                  Nominal Tambahan
+                  Nominal Pembayaran
                 </label>
                 <input
                   type="number"

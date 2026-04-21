@@ -76,9 +76,6 @@ class RentalController extends ResourceController
                 'delivery_address' => $validated['pickup_method'] === 'delivery'
                     ? trim((string) $validated['delivery_address'])
                     : null,
-                'dp_amount' => 0,
-                'paid_amount' => 0,
-                'remaining_amount' => $totalPrice,
                 'booking_code' => $this->generateBookingCode(),
                 'notes' => $validated['notes'] ?? null,
             ]);
@@ -99,7 +96,6 @@ class RentalController extends ResourceController
             ->whereIn('status', [
                 'pending',
                 'approved',
-                'paid_partial',
                 'paid',
                 'ongoing',
                 'overdue',
@@ -143,9 +139,6 @@ class RentalController extends ResourceController
             'payment_status' => $r->payment_status,
             'pickup_method' => $r->pickup_method,
             'delivery_address' => $r->delivery_address,
-            'dp_amount' => $r->dp_amount,
-            'paid_amount' => $r->paid_amount,
-            'remaining_amount' => $r->remaining_amount,
             'payment_deadline' => optional($r->payment_deadline)->toDateTimeString(),
             'notes' => $r->notes,
             'created_at' => optional($r->created_at)->toDateTimeString(),

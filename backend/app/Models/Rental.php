@@ -25,9 +25,6 @@ class Rental extends Model
         'rejected_at',
         'rejected_by',
         'rejection_reason',
-        'dp_amount',
-        'paid_amount',
-        'remaining_amount',
         'updated_at',
         'overdue_started_at',
         'booking_code',
@@ -50,9 +47,6 @@ class Rental extends Model
         'overdue_started_at' => 'datetime',
         'total_date' => 'integer',
         'total_price' => 'decimal:2',
-        'dp_amount' => 'decimal:2',
-        'paid_amount' => 'decimal:2',
-        'remaining_amount' => 'decimal:2',
     ];
 
     public function user()

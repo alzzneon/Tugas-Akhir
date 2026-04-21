@@ -96,18 +96,19 @@ class RentalController extends ResourceController
             'notes' => ['nullable', 'string'],
             'direct_approve' => ['nullable', 'boolean'],
             'payment_deadline_hours' => ['nullable', 'integer', 'min:1'],
-            'dp_amount' => ['nullable', 'numeric', 'min:0'],
 
             'customer_name' => ['nullable', 'string', 'max:120'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'customer_email' => ['nullable', 'email', 'max:120'],
         ]);
+
         $hasRegisteredUser = !empty($validated['user_id']);
         $hasManualCustomer = !empty($validated['customer_name']) && !empty($validated['customer_phone']);
 
         if (!$hasRegisteredUser && !$hasManualCustomer) {
             return $this->error('Pilih user terdaftar atau isi data penyewa manual.', 422);
         }
+
         if (
             $validated['pickup_method'] === 'delivery' &&
             empty(trim((string) ($validated['delivery_address'] ?? '')))
@@ -118,6 +119,7 @@ class RentalController extends ResourceController
         if ($validated['pickup_method'] === 'pickup') {
             $validated['delivery_address'] = null;
         }
+
         $vehicle = Vehicle::query()
             ->with('type:id,code,name')
             ->where('is_active', true)
@@ -132,25 +134,8 @@ class RentalController extends ResourceController
 
         $totalDays = $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
         $totalPrice = $totalDays * (float) $vehicle->daily_rate;
-
         $directApprove = (bool) ($validated['direct_approve'] ?? true);
-        $dpAmount = (float) ($validated['dp_amount'] ?? 0);
-        $paidAmount = $dpAmount > 0 ? $dpAmount : 0;
-        $remainingAmount = max(0, $totalPrice - $paidAmount);
-
-        $initialPaymentStatus = 'unpaid';
-        if ($paidAmount > 0 && $remainingAmount > 0) {
-            $initialPaymentStatus = 'partial';
-        } elseif ($paidAmount > 0 && $remainingAmount <= 0) {
-            $initialPaymentStatus = 'paid';
-        }
-
         $initialRentalStatus = $directApprove ? 'approved' : 'pending';
-        if ($initialPaymentStatus === 'partial') {
-            $initialRentalStatus = 'paid_partial';
-        } elseif ($initialPaymentStatus === 'paid') {
-            $initialRentalStatus = 'paid';
-        }
 
         $rental = DB::transaction(function () use (
             $validated,
@@ -160,72 +145,43 @@ class RentalController extends ResourceController
             $totalDays,
             $totalPrice,
             $directApprove,
-            $paidAmount,
-            $remainingAmount,
-            $initialPaymentStatus,
-            $initialRentalStatus,
             $request,
             $hasRegisteredUser
         ) {
-
-$rental = Rental::create([
-    'user_id' => $validated['user_id'] ?? null,
-    'vehicle_id' => $vehicle->id,
-    'start_date' => $start,
-    'end_date' => $end,
-    'total_date' => $totalDays,
-    'total_price' => $totalPrice,
-    'status' => $initialRentalStatus,
-    'payment_status' => $initialPaymentStatus,
-    'payment_deadline' => $directApprove
-        ? now()->addHours((int) ($validated['payment_deadline_hours'] ?? 2))
-        : null,
-    'approved_at' => $directApprove ? now() : null,
-    'approved_by' => $directApprove ? optional($request->user())->id : null,
-    'rejected_at' => null,
-    'rejected_by' => null,
-    'rejection_reason' => null,
-    'dp_amount' => $paidAmount,
-    'paid_amount' => $paidAmount,
-    'remaining_amount' => $remainingAmount,
-    'booking_code' => $this->generateBookingCode(),
-
-    // INI YANG HILANG
-    'customer_name' => $validated['customer_name'] ?? null,
-    'customer_phone' => $validated['customer_phone'] ?? null,
-    'customer_email' => $validated['customer_email'] ?? null,
-
-    // notes tetap boleh
-    'notes' => $this->buildNotes(
-        $validated['notes'] ?? null,
-        $hasRegisteredUser ? null : [
-            'customer_name' => $validated['customer_name'] ?? null,
-            'customer_phone' => $validated['customer_phone'] ?? null,
-            'customer_email' => $validated['customer_email'] ?? null,
-        ]
-    ),
-
-    'pickup_method' => $validated['pickup_method'],
-    'delivery_address' => $validated['pickup_method'] === 'delivery'
-        ? trim((string) $validated['delivery_address'])
-        : null,
-]);
-
-            if ($paidAmount > 0) {
-                Payment::create([
-                    'rental_id' => $rental->id,
-                    'amount' => $paidAmount,
-                    'payment_method' => 'manual',
-                    'payment_status' => 'paid',
-                    'payment_type' => 'dp',
-                    'provider' => 'manual',
-                    'provider_reference' => 'MANUAL-' . now()->format('YmdHis') . '-' . $rental->id,
-                    'notes' => 'DP awal saat pembuatan rental oleh admin',
-                    'paid_at' => now(),
-                ]);
-            }
-
-            return $rental;
+            return Rental::create([
+                'user_id' => $validated['user_id'] ?? null,
+                'vehicle_id' => $vehicle->id,
+                'start_date' => $start,
+                'end_date' => $end,
+                'total_date' => $totalDays,
+                'total_price' => $totalPrice,
+                'status' => $directApprove ? 'approved' : 'pending',
+                'payment_status' => 'unpaid',
+                'payment_deadline' => $directApprove
+                    ? now()->addHours((int) ($validated['payment_deadline_hours'] ?? 2))
+                    : null,
+                'approved_at' => $directApprove ? now() : null,
+                'approved_by' => $directApprove ? optional($request->user())->id : null,
+                'rejected_at' => null,
+                'rejected_by' => null,
+                'rejection_reason' => null,
+                'booking_code' => $this->generateBookingCode(),
+                'customer_name' => $validated['customer_name'] ?? null,
+                'customer_phone' => $validated['customer_phone'] ?? null,
+                'customer_email' => $validated['customer_email'] ?? null,
+                'pickup_method' => $validated['pickup_method'],
+                'delivery_address' => $validated['pickup_method'] === 'delivery'
+                    ? trim((string) $validated['delivery_address'])
+                    : null,
+                'notes' => $this->buildNotes(
+                    $validated['notes'] ?? null,
+                    $hasRegisteredUser ? null : [
+                        'customer_name' => $validated['customer_name'] ?? null,
+                        'customer_phone' => $validated['customer_phone'] ?? null,
+                        'customer_email' => $validated['customer_email'] ?? null,
+                    ]
+                ),
+            ]);
         });
 
         $rental->load([
@@ -253,11 +209,7 @@ $rental = Rental::create([
         }
 
         $rental->update([
-            'status' => $this->deriveRentalStatusFromAmounts(
-                (float) $rental->paid_amount,
-                (float) $rental->total_price,
-                'approved'
-            ),
+            'status' => 'approved',
             'approved_at' => now(),
             'approved_by' => optional($request->user())->id,
             'payment_deadline' => now()->addHours((int) ($validated['payment_deadline_hours'] ?? 2)),
@@ -285,7 +237,7 @@ $rental = Rental::create([
 
         $rental = Rental::query()->findOrFail($id);
 
-        if (!in_array($rental->status, ['paid'], true)) {
+        if (!in_array($rental->status, ['pending', 'approved'], true)) {
             return $this->error('Rental tidak bisa ditolak dari status saat ini.', 422);
         }
 
@@ -312,8 +264,8 @@ $rental = Rental::create([
     {
         $rental = Rental::query()->findOrFail($id);
 
-        if (!in_array($rental->status, ['approved', 'paid_partial', 'paid'], true)) {
-            return $this->error('Rental belum siap dijalankan.', 422);
+        if ($rental->status !== 'paid') {
+            return $this->error('Rental belum siap dijalankan. Pembayaran harus lunas terlebih dahulu.', 422);
         }
 
         $rental->update([
@@ -395,12 +347,10 @@ $rental = Rental::create([
 
         DB::transaction(function () use ($validated, $rental) {
             $amount = (float) ($validated['amount'] ?? 0);
-            $paidAmount = (float) $rental->paid_amount;
-            $totalPrice = (float) $rental->total_price;
+            $requestedStatus = strtolower((string) $validated['status']);
+            $requestedPaymentStatus = strtolower((string) $validated['payment_status']);
 
             if ($amount > 0) {
-                $paidAmount += $amount;
-
                 Payment::create([
                     'rental_id' => $rental->id,
                     'amount' => $amount,
@@ -414,32 +364,26 @@ $rental = Rental::create([
                 ]);
             }
 
-            $remainingAmount = max(0, $totalPrice - $paidAmount);
-            $derivedPaymentStatus = $this->derivePaymentStatusFromAmounts($paidAmount, $totalPrice);
-            $requestedStatus = strtolower((string) $validated['status']);
+            $finalPaymentStatus = in_array($requestedPaymentStatus, ['unpaid', 'paid'], true)
+                ? $requestedPaymentStatus
+                : 'unpaid';
+
             $finalStatus = $requestedStatus;
-
-            if (in_array($requestedStatus, ['approved', 'paid_partial', 'paid'], true)) {
-                $finalStatus = $this->deriveRentalStatusFromAmounts($paidAmount, $totalPrice, 'approved');
+            if ($finalPaymentStatus === 'paid' && in_array($requestedStatus, ['approved', 'pending'], true)) {
+                $finalStatus = 'paid';
             }
 
-            if ($requestedStatus === 'completed' && empty($rental->actual_return_at)) {
-                $actualReturnAt = now();
-            } else {
-                $actualReturnAt = $rental->actual_return_at;
-            }
+            $actualReturnAt = $requestedStatus === 'completed' && empty($rental->actual_return_at)
+                ? now()
+                : $rental->actual_return_at;
 
-            if ($requestedStatus === 'ongoing' && empty($rental->actual_pickup_at)) {
-                $actualPickupAt = now();
-            } else {
-                $actualPickupAt = $rental->actual_pickup_at;
-            }
+            $actualPickupAt = $requestedStatus === 'ongoing' && empty($rental->actual_pickup_at)
+                ? now()
+                : $rental->actual_pickup_at;
 
             $rental->update([
                 'status' => $finalStatus,
-                'payment_status' => $derivedPaymentStatus,
-                'paid_amount' => $paidAmount,
-                'remaining_amount' => $remainingAmount,
+                'payment_status' => $finalPaymentStatus,
                 'actual_pickup_at' => $actualPickupAt,
                 'actual_return_at' => $actualReturnAt,
             ]);
@@ -460,25 +404,24 @@ $rental = Rental::create([
         );
     }
 
-private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $ignoreRentalId = null): bool
-{
-    return Rental::query()
-        ->where('vehicle_id', $vehicleId)
-        ->whereIn('status', [
-            'pending',
-            'approved',
-            'paid_partial',
-            'paid',
-            'ongoing',
-            'overdue',
-        ])
-        ->when($ignoreRentalId, fn ($q) => $q->where('id', '!=', $ignoreRentalId))
-        ->where(function ($q) use ($start, $end) {
-            $q->where('start_date', '<=', $end)
-              ->where('end_date', '>=', $start);
-        })
-        ->exists();
-}
+    private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $ignoreRentalId = null): bool
+    {
+        return Rental::query()
+            ->where('vehicle_id', $vehicleId)
+            ->whereIn('status', [
+                'pending',
+                'approved',
+                'paid',
+                'ongoing',
+                'overdue',
+            ])
+            ->when($ignoreRentalId, fn ($q) => $q->where('id', '!=', $ignoreRentalId))
+            ->where(function ($q) use ($start, $end) {
+                $q->where('start_date', '<=', $end)
+                  ->where('end_date', '>=', $start);
+            })
+            ->exists();
+    }
 
     private function generateBookingCode(): string
     {
@@ -539,32 +482,6 @@ private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $i
         return $result;
     }
 
-    private function derivePaymentStatusFromAmounts(float $paidAmount, float $totalPrice): string
-    {
-        if ($paidAmount <= 0) {
-            return 'unpaid';
-        }
-
-        if ($paidAmount >= $totalPrice) {
-            return 'paid';
-        }
-
-        return 'partial';
-    }
-
-    private function deriveRentalStatusFromAmounts(float $paidAmount, float $totalPrice, string $default = 'approved'): string
-    {
-        if ($paidAmount <= 0) {
-            return $default;
-        }
-
-        if ($paidAmount >= $totalPrice) {
-            return 'paid';
-        }
-
-        return 'paid_partial';
-    }
-
     private function transformRental(Rental $r): array
     {
         $manualFromNotes = $this->extractManualCustomer($r->notes);
@@ -578,6 +495,7 @@ private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $i
                 'customer_email' => $r->customer_email ?? ($manualFromNotes['customer_email'] ?? null),
             ];
         }
+
         return [
             'id' => $r->id,
             'booking_code' => $r->booking_code,
@@ -613,10 +531,8 @@ private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $i
             'status' => $r->status,
             'payment_status' => $r->payment_status,
             'payment_deadline' => optional($r->payment_deadline)->toDateTimeString(),
-
-            'dp_amount' => $r->dp_amount,
-            'paid_amount' => $r->paid_amount,
-            'remaining_amount' => $r->remaining_amount,
+            'pickup_method' => $r->pickup_method,
+            'delivery_address' => $r->delivery_address,
 
             'approved_at' => optional($r->approved_at)->toDateTimeString(),
             'approved_by' => $r->approvedBy?->full_name,
@@ -628,8 +544,6 @@ private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $i
             'notes' => $r->notes,
             'created_at' => optional($r->created_at)->toDateTimeString(),
             'updated_at' => optional($r->updated_at)->toDateTimeString(),
-            'pickup_method' => $r->pickup_method,
-            'delivery_address' => $r->delivery_address,
         ];
     }
 }
