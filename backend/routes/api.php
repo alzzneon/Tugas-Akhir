@@ -25,7 +25,13 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register/send-otp', [AuthController::class, 'sendRegisterOtp']);
+Route::post('/register/verify-otp', [AuthController::class, 'verifyRegisterOtp']);
+Route::post('/register/complete', [AuthController::class, 'completeRegister']);
+Route::post('/register/resend-otp', [AuthController::class, 'resendRegisterOtp']);
+Route::post('/forgot-password/send-otp', [AuthController::class, 'sendForgotPasswordOtp']);
+Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyForgotPasswordOtp']);
+Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword']);
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::apiResource('admins', AdminUserController::class)

@@ -27,6 +27,7 @@ import Mobil from "./pages/Customer/Mobil";
 import Motor from "./pages/Customer/Motor";
 import Login from "./pages/Customer/Login";
 import Register from "./pages/Customer/Register";
+import ForgotPassword from "./pages/Customer/ForgotPassword";
 import SewaMobil from "./pages/Customer/SewaMobil";
 
 import TentangPerusahaan from "./pages/Customer/Informasi/TentangPerusahaan";
@@ -56,7 +57,8 @@ export default function App() {
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      
       <Route path="/tentang" element={<TentangPerusahaan />} />
       <Route path="/syarat" element={<SyaratKetentuan />} />
       <Route path="/kebijakan" element={<KebijakanPrivasi />} />

@@ -23,18 +23,21 @@ class User extends Authenticatable
         'birth_place',
         'birth_date',
         'position',
-        'is_active'
+        'is_active',
+        'email_verified_at',
     ];
 
     protected $hidden = [
-        'password'
+        'password',
+        'remember_token',
     ];
 
     protected $keyType = 'string';
     public $incrementing = false;
 
     protected $casts = [
-    'birth_date' => 'date',
-    'is_active' => 'boolean',
+        'birth_date' => 'date',
+        'is_active' => 'boolean',
+        'email_verified_at' => 'datetime',
     ];
 }

@@ -1,21 +1,16 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const API_BASE = "http://127.0.0.1:8000/api";
 
-export default function Register() {
+export default function ForgotPassword() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
-
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-
   const [form, setForm] = useState({
-    full_name: "",
-    phone_number: "",
-    address: "",
     password: "",
     password_confirmation: "",
   });
@@ -23,13 +18,6 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-
-  const handleFormChange = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
 
   const getErrorMessage = (err, fallback = "Terjadi kesalahan.") => {
     const errors = err?.response?.data?.errors;
@@ -42,6 +30,13 @@ export default function Register() {
     return err?.response?.data?.message || fallback;
   };
 
+  const handleChangePassword = (e) => {
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -49,14 +44,14 @@ export default function Register() {
     setMessage("");
 
     try {
-      const res = await axios.post(`${API_BASE}/register/send-otp`, {
+      const res = await axios.post(`${API_BASE}/forgot-password/send-otp`, {
         email,
       });
 
-      setMessage(res.data.message || "Kode OTP berhasil dikirim ke email.");
+      setMessage(res.data.message || "OTP berhasil dikirim ke email.");
       setStep(2);
     } catch (err) {
-      setError(getErrorMessage(err, "Gagal mengirim kode OTP."));
+      setError(getErrorMessage(err, "Gagal mengirim OTP."));
     } finally {
       setLoading(false);
     }
@@ -69,7 +64,7 @@ export default function Register() {
     setMessage("");
 
     try {
-      const res = await axios.post(`${API_BASE}/register/verify-otp`, {
+      const res = await axios.post(`${API_BASE}/forgot-password/verify-otp`, {
         email,
         otp,
       });
@@ -83,13 +78,38 @@ export default function Register() {
     }
   };
 
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const res = await axios.post(`${API_BASE}/forgot-password/reset`, {
+        email,
+        password: form.password,
+        password_confirmation: form.password_confirmation,
+      });
+
+      setMessage(res.data.message || "Password berhasil diperbarui.");
+
+      setTimeout(() => {
+        navigate("/login");
+      }, 1200);
+    } catch (err) {
+      setError(getErrorMessage(err, "Gagal mengubah password."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleResendOtp = async () => {
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      const res = await axios.post(`${API_BASE}/register/resend-otp`, {
+      const res = await axios.post(`${API_BASE}/forgot-password/send-otp`, {
         email,
       });
 
@@ -101,41 +121,11 @@ export default function Register() {
     }
   };
 
-  const handleCompleteRegister = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const payload = {
-        email,
-        full_name: form.full_name,
-        phone_number: form.phone_number,
-        address: form.address,
-        password: form.password,
-        password_confirmation: form.password_confirmation,
-      };
-
-      const res = await axios.post(`${API_BASE}/register/complete`, payload);
-
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-
-      setMessage(res.data.message || "Register berhasil.");
-      navigate("/");
-    } catch (err) {
-      setError(getErrorMessage(err, "Pendaftaran akun gagal."));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const renderStepIndicator = () => {
     const items = [
       { no: 1, label: "Email" },
       { no: 2, label: "OTP" },
-      { no: 3, label: "Data Diri" },
+      { no: 3, label: "Password Baru" },
     ];
 
     return (
@@ -178,9 +168,9 @@ export default function Register() {
       <div className="w-full max-w-xl">
         <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-12">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-black text-slate-900">Buat Akun Customer</h1>
+            <h1 className="text-3xl font-black text-slate-900">Lupa Password</h1>
             <p className="text-slate-500 mt-2">
-              Registrasi dilakukan dengan verifikasi email menggunakan kode OTP
+              Reset password dilakukan melalui verifikasi OTP email
             </p>
           </div>
 
@@ -288,8 +278,8 @@ export default function Register() {
           )}
 
           {step === 3 && (
-            <form onSubmit={handleCompleteRegister} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="md:col-span-2">
+            <form onSubmit={handleResetPassword} className="space-y-5">
+              <div>
                 <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
                   Email
                 </label>
@@ -301,99 +291,54 @@ export default function Register() {
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Nama Lengkap
-                </label>
-                <input
-                  name="full_name"
-                  type="text"
-                  value={form.full_name}
-                  onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
-                  placeholder="Sesuai KTP"
-                  required
-                />
-              </div>
-
               <div>
                 <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Nomor HP
+                  Password Baru
                 </label>
                 <input
-                  name="phone_number"
-                  type="text"
-                  value={form.phone_number}
-                  onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
-                  placeholder="0812..."
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Password
-                </label>
-                <input
-                  name="password"
                   type="password"
+                  name="password"
                   value={form.password}
-                  onChange={handleFormChange}
+                  onChange={handleChangePassword}
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
                   placeholder="••••••••"
                   required
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Alamat Domisili
-                </label>
-                <textarea
-                  name="address"
-                  value={form.address}
-                  onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
-                  placeholder="Alamat lengkap saat ini"
-                  rows="2"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Konfirmasi Password
+                  Konfirmasi Password Baru
                 </label>
                 <input
-                  name="password_confirmation"
                   type="password"
+                  name="password_confirmation"
                   value={form.password_confirmation}
-                  onChange={handleFormChange}
+                  onChange={handleChangePassword}
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
-                  placeholder="Ulangi password"
+                  placeholder="Ulangi password baru"
                   required
                 />
               </div>
 
-              <div className="md:col-span-2 mt-4">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
-                >
-                  {loading ? "Mendaftarkan Akun..." : "Daftar Akun Sekarang"}
-                </button>
-
-                <p className="text-center mt-6 text-sm text-slate-500">
-                  Sudah memiliki akun?{" "}
-                  <Link to="/login" className="text-red-600 font-bold hover:underline">
-                    Login di sini
-                  </Link>
-                </p>
-              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+              >
+                {loading ? "Menyimpan..." : "Simpan Password Baru"}
+              </button>
             </form>
           )}
+
+          <div className="mt-8 pt-6 border-t border-slate-50 text-center">
+            <p className="text-slate-500 text-sm">
+              Kembali ke{" "}
+              <Link to="/login" className="text-red-600 font-bold hover:underline">
+                halaman login
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
