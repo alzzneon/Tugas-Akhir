@@ -183,12 +183,13 @@ export default function PesananSaya() {
     return rows;
   }, [rows, activeTab]);
 
-  const handlePay = (item) => {
-    navigate("/profile", {
-      state: {
-        openPaymentFor: item.id,
-      },
-    });
+  const goToDetail = (itemId) => {
+    navigate(`/pesanan-saya/${itemId}`);
+  };
+
+  const goToPayment = (e, itemId) => {
+    e.stopPropagation();
+    navigate(`/pesanan-saya/${itemId}/pembayaran`);
   };
 
   return (
@@ -244,7 +245,8 @@ export default function PesananSaya() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                    onClick={() => goToDetail(item.id)}
+                    className="cursor-pointer rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md hover:border-red-200"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-3">
@@ -326,24 +328,20 @@ export default function PesananSaya() {
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2 lg:min-w-[180px]">
+                      <div className="flex flex-col gap-2 lg:min-w-[220px]">
                         {canPay ? (
                           <button
                             type="button"
-                            onClick={() => handlePay(item)}
+                            onClick={(e) => goToPayment(e, item.id)}
                             className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
                           >
                             Bayar Sekarang
                           </button>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          onClick={() => navigate("/profile")}
-                          className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Lihat Profil
-                        </button>
+                        ) : (
+                          <div className="text-xs text-gray-400 text-right">
+                            Klik kartu untuk lihat detail pesanan
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -30,6 +30,8 @@ import ForgotPassword from "./pages/Customer/ForgotPassword";
 import SewaMobil from "./pages/Customer/SewaMobil";
 import SewaMotor from "./pages/Customer/SewaMotor";
 import PesananSaya from "./pages/Customer/PesananSaya";
+import DetailPesanan from "./pages/Customer/DetailPesanan";
+import PembayaranPesanan from "./pages/Customer/PembayaranPesanan";
 
 import TentangPerusahaan from "./pages/Customer/Informasi/TentangPerusahaan";
 import SyaratKetentuan from "./pages/Customer/Informasi/SyaratKetentuan";
@@ -118,7 +120,23 @@ export default function App() {
           </ProtectedCustomerRoute>
         }
       />
-      
+      <Route
+        path="/pesanan-saya/:id"
+        element={
+          <ProtectedCustomerRoute>
+            <DetailPesanan />
+          </ProtectedCustomerRoute>
+        }
+      />
+
+      <Route
+        path="/pesanan-saya/:id/pembayaran"
+        element={
+          <ProtectedCustomerRoute>
+            <PembayaranPesanan />
+          </ProtectedCustomerRoute>
+        }
+      />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
