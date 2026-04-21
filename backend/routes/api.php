@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\Admin\PaymentStatusController;
 use App\Http\Controllers\Api\Admin\VehicleController;
 use App\Http\Controllers\Api\Admin\RentalController as AdminRentalController;
 
+use App\Http\Controllers\Api\NotificationController;
+
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\PaymentController;
@@ -79,6 +81,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/payments', [PaymentController::class, 'index']);
     Route::post('/payments', [PaymentController::class, 'store']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+
 });
 
 Route::prefix('public')->group(function () {

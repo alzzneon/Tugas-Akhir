@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Api\Concerns\CreatesNotifications;
 use App\Http\Controllers\Api\ResourceController;
 use App\Models\Payment;
 use App\Models\Rental;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 class RentalController extends ResourceController
 {
+    use CreatesNotifications;
+
     public function usersForRental()
     {
         $rows = User::query()
@@ -43,6 +46,7 @@ class RentalController extends ResourceController
                 'approvedBy:id,full_name',
                 'rejectedBy:id,full_name',
                 'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
+                'lateFines:id,rental_id,total_fine,status,calculation_type,late_hours,late_minutes',
             ])
             ->latest('id');
 
@@ -135,7 +139,6 @@ class RentalController extends ResourceController
         $totalDays = $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
         $totalPrice = $totalDays * (float) $vehicle->daily_rate;
         $directApprove = (bool) ($validated['direct_approve'] ?? true);
-        $initialRentalStatus = $directApprove ? 'approved' : 'pending';
 
         $rental = DB::transaction(function () use (
             $validated,
@@ -193,6 +196,19 @@ class RentalController extends ResourceController
             'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
         ]);
 
+        if (!empty($rental->user_id)) {
+            $this->createNotification(
+                $rental->user_id,
+                $rental->status === 'approved' ? 'Penyewaan Disetujui' : 'Penyewaan Dibuat Admin',
+                $rental->status === 'approved'
+                    ? 'Admin telah membuat dan menyetujui penyewaan untuk akun Anda. Silakan lakukan pembayaran.'
+                    : 'Admin telah membuat penyewaan untuk akun Anda.',
+                $rental->status === 'approved' ? 'rental_approved' : 'rental_created_by_admin',
+                'rental',
+                $rental->id
+            );
+        }
+
         return $this->created($this->transformRental($rental));
     }
 
@@ -226,6 +242,17 @@ class RentalController extends ResourceController
             'rejectedBy:id,full_name',
         ]);
 
+        if (!empty($rental->user_id)) {
+            $this->createNotification(
+                $rental->user_id,
+                'Penyewaan Disetujui',
+                'Pesanan Anda telah disetujui. Silakan lakukan pembayaran.',
+                'rental_approved',
+                'rental',
+                $rental->id
+            );
+        }
+
         return $this->success($this->transformRental($rental), 'Rental berhasil di-approve.');
     }
 
@@ -256,6 +283,17 @@ class RentalController extends ResourceController
             'approvedBy:id,full_name',
             'rejectedBy:id,full_name',
         ]);
+
+        if (!empty($rental->user_id)) {
+            $this->createNotification(
+                $rental->user_id,
+                'Penyewaan Ditolak',
+                'Pesanan Anda ditolak oleh admin.',
+                'rental_rejected',
+                'rental',
+                $rental->id
+            );
+        }
 
         return $this->success($this->transformRental($rental), 'Rental berhasil ditolak.');
     }

@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import {
   LayoutDashboard,
   Layers,
@@ -10,11 +11,33 @@ import {
   ChevronLeft,
   Car,
   Users,
-  UserCircle,
 } from "lucide-react";
 
 function cx(...cls) {
   return cls.filter(Boolean).join(" ");
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+
+  return d.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getNotificationRoute(item) {
+  if (item?.reference_type === "rental" && item?.reference_id) {
+    return "/admin/penyewaan/mobil";
+  }
+
+  return null;
 }
 
 function SideItem({ to, icon: Icon, label, collapsed }) {
@@ -70,8 +93,26 @@ export default function AdminLayout() {
 
   const [collapsed, setCollapsed] = useState(false);
   const [openUserMenu, setOpenUserMenu] = useState(false);
+  const [openNotifMenu, setOpenNotifMenu] = useState(false);
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   const userMenuRef = useRef(null);
+  const notifMenuRef = useRef(null);
+
+  const token = localStorage.getItem("token");
+
+  const api = useMemo(() => {
+    return axios.create({
+      baseURL: "http://localhost:8000/api",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+  }, [token]);
 
   const isMasterActive = pathname.startsWith("/admin/master/");
   const isKendaraanActive = pathname.startsWith("/admin/kendaraan");
@@ -92,13 +133,51 @@ export default function AdminLayout() {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setOpenUserMenu(false);
       }
+
+      if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) {
+        setOpenNotifMenu(false);
+      }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  async function fetchNotifications() {
+    if (!token) return;
+
+    try {
+      setNotifLoading(true);
+
+      const [listRes, countRes] = await Promise.all([
+        api.get("/notifications"),
+        api.get("/notifications/unread-count"),
+      ]);
+
+      setNotifications(Array.isArray(listRes.data?.data) ? listRes.data.data : []);
+      setUnreadCount(Number(countRes.data?.data?.unread_count || 0));
+    } catch (err) {
+      console.error("Gagal memuat notifikasi:", err);
+    } finally {
+      setNotifLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchNotifications();
+
+    if (!token) return;
+
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [token]);
+
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     localStorage.removeItem("admin_user");
     navigate("/admin/login", { replace: true });
   };
@@ -107,6 +186,29 @@ export default function AdminLayout() {
     setOpenUserMenu(false);
     navigate("/profile");
   };
+
+  async function handleReadOne(item) {
+    try {
+      await api.patch(`/notifications/${item.id}/read`);
+      await fetchNotifications();
+
+      const route = getNotificationRoute(item);
+      if (route) {
+        navigate(route);
+      }
+    } catch (err) {
+      console.error("Gagal menandai notifikasi dibaca:", err);
+    }
+  }
+
+  async function handleReadAll() {
+    try {
+      await api.patch("/notifications/read-all");
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Gagal menandai semua notifikasi dibaca:", err);
+    }
+  }
 
   const groupBtnClass = (isActive) =>
     cx(
@@ -118,17 +220,14 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* ── Sidebar ── */}
       <aside
         className={cx(
           "fixed left-0 top-0 h-screen bg-white border-r border-gray-100 flex flex-col transition-all duration-200 z-20",
           collapsed ? "w-[68px]" : "w-60"
         )}
       >
-        {/* Brand */}
         <div className="h-14 px-3.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            {/* Logo mark */}
             <div className="w-7 h-7 rounded-lg bg-[#1A1A2E] flex items-center justify-center flex-shrink-0">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="1" y="7" width="4" height="6" rx="1" fill="white" />
@@ -158,7 +257,6 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        {/* Scrollable nav */}
         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
           <SideItem
             to="/admin/dashboard"
@@ -174,7 +272,6 @@ export default function AdminLayout() {
             collapsed={collapsed}
           />
 
-          {/* ── Master Data ── */}
           <SectionLabel label="Data" collapsed={collapsed} />
 
           <button
@@ -204,7 +301,6 @@ export default function AdminLayout() {
             </div>
           )}
 
-          {/* ── Kendaraan ── */}
           <button
             onClick={() => setOpenKendaraan((v) => !v)}
             className={groupBtnClass(isKendaraanActive)}
@@ -229,7 +325,6 @@ export default function AdminLayout() {
             </div>
           )}
 
-          {/* ── Penyewaan ── */}
           <button
             onClick={() => setOpenRent((v) => !v)}
             className={groupBtnClass(isRentActive)}
@@ -256,16 +351,13 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* ── Main area ── */}
       <div
         className={cx(
           "flex-1 flex flex-col transition-all duration-200",
           collapsed ? "ml-[68px]" : "ml-60"
         )}
       >
-        {/* Topbar */}
         <header className="sticky top-0 z-10 bg-white border-b border-gray-100 h-14 flex items-center gap-3 px-5">
-          {/* Search */}
           <div className="flex-1 relative">
             <Search
               size={14}
@@ -277,13 +369,72 @@ export default function AdminLayout() {
             />
           </div>
 
-          {/* Notif */}
-          <button className="relative w-8 h-8 rounded-lg border border-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition">
-            <Bell size={15} />
-            <span className="absolute top-[7px] right-[7px] w-1.5 h-1.5 rounded-full bg-red-500" />
-          </button>
+          <div className="relative" ref={notifMenuRef}>
+            <button
+              type="button"
+              onClick={() => setOpenNotifMenu((v) => !v)}
+              className="relative w-8 h-8 rounded-lg border border-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition"
+            >
+              <Bell size={15} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
 
-          {/* User menu */}
+            {openNotifMenu && (
+              <div className="absolute right-0 mt-2 w-96 rounded-xl border border-gray-100 bg-white shadow-lg shadow-gray-100/60 overflow-hidden z-30">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <p className="text-sm font-semibold text-gray-800">Notifikasi</p>
+                  <button
+                    type="button"
+                    onClick={handleReadAll}
+                    className="text-xs text-indigo-600 hover:underline"
+                  >
+                    Tandai semua dibaca
+                  </button>
+                </div>
+
+                <div className="max-h-96 overflow-y-auto">
+                  {notifLoading ? (
+                    <div className="px-4 py-4 text-sm text-gray-500">Memuat notifikasi...</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="px-4 py-4 text-sm text-gray-500">Belum ada notifikasi.</div>
+                  ) : (
+                    notifications.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleReadOne(item)}
+                        className={cx(
+                          "w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition",
+                          !item.is_read && "bg-indigo-50/40"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-800">{item.title}</p>
+                            <p className="mt-1 text-xs text-gray-600 line-clamp-2">
+                              {item.message}
+                            </p>
+                            <p className="mt-2 text-[11px] text-gray-400">
+                              {formatDateTime(item.created_at)}
+                            </p>
+                          </div>
+
+                          {!item.is_read && (
+                            <span className="mt-1 w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setOpenUserMenu((v) => !v)}
@@ -314,7 +465,10 @@ export default function AdminLayout() {
                 </button>
                 <div className="border-t border-gray-100" />
                 <button
-                  onClick={() => { setOpenUserMenu(false); logout(); }}
+                  onClick={() => {
+                    setOpenUserMenu(false);
+                    logout();
+                  }}
                   className="w-full px-4 py-2.5 text-left text-[12.5px] text-red-500 hover:bg-red-50 transition"
                 >
                   Logout
@@ -324,7 +478,6 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        {/* Page content */}
         <main className="p-6">
           <Outlet />
         </main>

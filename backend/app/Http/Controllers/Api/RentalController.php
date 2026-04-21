@@ -7,9 +7,12 @@ use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Api\Concerns\CreatesNotifications;
 
 class RentalController extends ResourceController
 {
+    use CreatesNotifications;
+
     public function index(Request $request)
     {
         $rows = Rental::query()
@@ -85,6 +88,17 @@ class RentalController extends ResourceController
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
         ]);
+
+        $customerName = $request->user()->full_name ?? 'Customer';
+        $vehicleName = $vehicle->name ?? 'kendaraan';
+
+        $this->notifyAllAdmins(
+            'Pengajuan Baru',
+            $customerName . ' mengajukan sewa untuk ' . $vehicleName . '.',
+            'rental_created',
+            'rental',
+            $rental->id
+        );
 
         return $this->created($this->transformRental($rental));
     }
