@@ -31,22 +31,35 @@ class RentalController extends ResourceController
         $validated = $request->validate([
             'vehicle_id' => ['required', 'integer', 'exists:mt_vehicles,id'],
             'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after:start_date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'pickup_method' => ['required', 'in:pickup,delivery'],
+            'delivery_address' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        if (
+            $validated['pickup_method'] === 'delivery' &&
+            empty(trim((string) ($validated['delivery_address'] ?? '')))
+        ) {
+            return $this->error('Alamat pengantaran wajib diisi jika metode pengambilan adalah diantar.', 422);
+        }
+
+        if ($validated['pickup_method'] === 'pickup') {
+            $validated['delivery_address'] = null;
+        }
 
         $vehicle = Vehicle::query()
             ->where('is_active', true)
             ->findOrFail($validated['vehicle_id']);
 
-        $start = Carbon::parse($validated['start_date']);
-        $end = Carbon::parse($validated['end_date']);
+        $start = Carbon::parse($validated['start_date'])->startOfDay();
+        $end = Carbon::parse($validated['end_date'])->endOfDay();
 
         if ($this->hasConflict($vehicle->id, $start, $end)) {
             return $this->error('Jadwal kendaraan bentrok dengan rental lain.', 422);
         }
 
-        $totalDays = max(1, (int) ceil($start->diffInHours($end) / 24));
+        $totalDays = $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
         $totalPrice = $totalDays * (float) $vehicle->daily_rate;
 
         $rental = DB::transaction(function () use ($request, $validated, $vehicle, $start, $end, $totalDays, $totalPrice) {
@@ -59,6 +72,10 @@ class RentalController extends ResourceController
                 'total_price' => $totalPrice,
                 'status' => 'pending',
                 'payment_status' => 'unpaid',
+                'pickup_method' => $validated['pickup_method'],
+                'delivery_address' => $validated['pickup_method'] === 'delivery'
+                    ? trim((string) $validated['delivery_address'])
+                    : null,
                 'dp_amount' => 0,
                 'paid_amount' => 0,
                 'remaining_amount' => $totalPrice,
@@ -79,10 +96,17 @@ class RentalController extends ResourceController
     {
         return Rental::query()
             ->where('vehicle_id', $vehicleId)
-            ->whereIn('status', ['pending', 'approved', 'waiting_payment', 'paid_partial', 'paid', 'ongoing', 'overdue'])
+            ->whereIn('status', [
+                'pending',
+                'approved',
+                'paid_partial',
+                'paid',
+                'ongoing',
+                'overdue',
+            ])
             ->where(function ($q) use ($start, $end) {
-                $q->where('start_date', '<', $end)
-                  ->where('end_date', '>', $start);
+                $q->where('start_date', '<=', $end)
+                  ->where('end_date', '>=', $start);
             })
             ->exists();
     }
@@ -117,6 +141,8 @@ class RentalController extends ResourceController
             'total_price' => $r->total_price,
             'status' => $r->status,
             'payment_status' => $r->payment_status,
+            'pickup_method' => $r->pickup_method,
+            'delivery_address' => $r->delivery_address,
             'dp_amount' => $r->dp_amount,
             'paid_amount' => $r->paid_amount,
             'remaining_amount' => $r->remaining_amount,

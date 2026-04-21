@@ -35,6 +35,8 @@ class Rental extends Model
         'customer_name',
         'customer_phone',
         'customer_email',
+        'pickup_method',
+        'delivery_address',
     ];
 
     protected $casts = [

@@ -90,7 +90,9 @@ class RentalController extends ResourceController
             'user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'vehicle_id' => ['required', 'integer', 'exists:mt_vehicles,id'],
             'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after:start_date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'pickup_method' => ['required', 'in:pickup,delivery'],
+            'delivery_address' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
             'direct_approve' => ['nullable', 'boolean'],
             'payment_deadline_hours' => ['nullable', 'integer', 'min:1'],
@@ -100,27 +102,35 @@ class RentalController extends ResourceController
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'customer_email' => ['nullable', 'email', 'max:120'],
         ]);
-
         $hasRegisteredUser = !empty($validated['user_id']);
         $hasManualCustomer = !empty($validated['customer_name']) && !empty($validated['customer_phone']);
 
         if (!$hasRegisteredUser && !$hasManualCustomer) {
             return $this->error('Pilih user terdaftar atau isi data penyewa manual.', 422);
         }
+        if (
+            $validated['pickup_method'] === 'delivery' &&
+            empty(trim((string) ($validated['delivery_address'] ?? '')))
+        ) {
+            return $this->error('Alamat pengantaran wajib diisi jika metode pengambilan adalah diantar.', 422);
+        }
 
+        if ($validated['pickup_method'] === 'pickup') {
+            $validated['delivery_address'] = null;
+        }
         $vehicle = Vehicle::query()
             ->with('type:id,code,name')
             ->where('is_active', true)
             ->findOrFail($validated['vehicle_id']);
 
-        $start = Carbon::parse($validated['start_date']);
-        $end = Carbon::parse($validated['end_date']);
+        $start = Carbon::parse($validated['start_date'])->startOfDay();
+        $end = Carbon::parse($validated['end_date'])->endOfDay();
 
         if ($this->hasConflict($vehicle->id, $start, $end)) {
             return $this->error('Jadwal kendaraan bentrok dengan rental lain.', 422);
         }
 
-        $totalDays = max(1, (int) ceil($start->diffInHours($end) / 24));
+        $totalDays = $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
         $totalPrice = $totalDays * (float) $vehicle->daily_rate;
 
         $directApprove = (bool) ($validated['direct_approve'] ?? true);
@@ -194,6 +204,11 @@ $rental = Rental::create([
             'customer_email' => $validated['customer_email'] ?? null,
         ]
     ),
+
+    'pickup_method' => $validated['pickup_method'],
+    'delivery_address' => $validated['pickup_method'] === 'delivery'
+        ? trim((string) $validated['delivery_address'])
+        : null,
 ]);
 
             if ($paidAmount > 0) {
@@ -270,7 +285,7 @@ $rental = Rental::create([
 
         $rental = Rental::query()->findOrFail($id);
 
-        if (!in_array($rental->status, ['pending', 'approved', 'paid_partial'], true)) {
+        if (!in_array($rental->status, ['paid'], true)) {
             return $this->error('Rental tidak bisa ditolak dari status saat ini.', 422);
         }
 
@@ -445,25 +460,25 @@ $rental = Rental::create([
         );
     }
 
-    private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $ignoreRentalId = null): bool
-    {
-        return Rental::query()
-            ->where('vehicle_id', $vehicleId)
-            ->whereIn('status', [
-                'pending',
-                'approved',
-                'paid_partial',
-                'paid',
-                'ongoing',
-                'overdue',
-            ])
-            ->when($ignoreRentalId, fn ($q) => $q->where('id', '!=', $ignoreRentalId))
-            ->where(function ($q) use ($start, $end) {
-                $q->where('start_date', '<', $end)
-                    ->where('end_date', '>', $start);
-            })
-            ->exists();
-    }
+private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $ignoreRentalId = null): bool
+{
+    return Rental::query()
+        ->where('vehicle_id', $vehicleId)
+        ->whereIn('status', [
+            'pending',
+            'approved',
+            'paid_partial',
+            'paid',
+            'ongoing',
+            'overdue',
+        ])
+        ->when($ignoreRentalId, fn ($q) => $q->where('id', '!=', $ignoreRentalId))
+        ->where(function ($q) use ($start, $end) {
+            $q->where('start_date', '<=', $end)
+              ->where('end_date', '>=', $start);
+        })
+        ->exists();
+}
 
     private function generateBookingCode(): string
     {
@@ -613,6 +628,8 @@ $rental = Rental::create([
             'notes' => $r->notes,
             'created_at' => optional($r->created_at)->toDateTimeString(),
             'updated_at' => optional($r->updated_at)->toDateTimeString(),
+            'pickup_method' => $r->pickup_method,
+            'delivery_address' => $r->delivery_address,
         ];
     }
 }
