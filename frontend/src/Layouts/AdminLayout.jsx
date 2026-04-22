@@ -257,98 +257,98 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-          <SideItem
-            to="/admin/dashboard"
-            icon={LayoutDashboard}
-            label="Dashboard"
-            collapsed={collapsed}
-          />
+<div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+  <SideItem
+    to="/admin/dashboard"
+    icon={LayoutDashboard}
+    label="Dashboard"
+    collapsed={collapsed}
+  />
 
-          <SideItem
-            to="/admin/admins"
-            icon={Users}
-            label="Admin Management"
-            collapsed={collapsed}
-          />
+  <SectionLabel label="Data" collapsed={collapsed} />
 
-          <SectionLabel label="Data" collapsed={collapsed} />
+  <button
+    onClick={() => setOpenMaster((v) => !v)}
+    className={groupBtnClass(isMasterActive)}
+    title={collapsed ? "Master Data" : undefined}
+  >
+    <Layers size={16} className="flex-shrink-0" />
+    {!collapsed && (
+      <>
+        <span className="flex-1 text-left">Master Data</span>
+        <ChevronDown
+          size={13}
+          className={cx("transition-transform text-gray-400", openMaster && "rotate-180")}
+        />
+      </>
+    )}
+  </button>
 
-          <button
-            onClick={() => setOpenMaster((v) => !v)}
-            className={groupBtnClass(isMasterActive)}
-            title={collapsed ? "Master Data" : undefined}
-          >
-            <Layers size={16} className="flex-shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="flex-1 text-left">Master Data</span>
-                <ChevronDown
-                  size={13}
-                  className={cx("transition-transform text-gray-400", openMaster && "rotate-180")}
-                />
-              </>
-            )}
-          </button>
+  {!collapsed && openMaster && (
+    <div className="pl-7 space-y-0.5 pb-1">
+      <SubItem to="/admin/master/vehicle-types" label="Jenis Kendaraan" />
+      <SubItem to="/admin/master/vehicle-brands" label="Merek Kendaraan" />
+      <SubItem to="/admin/master/transmissions" label="Transmisi" />
+      <SubItem to="/admin/master/rental-statuses" label="Status Rental" />
+      <SubItem to="/admin/master/payment-statuses" label="Status Pembayaran" />
+    </div>
+  )}
 
-          {!collapsed && openMaster && (
-            <div className="pl-7 space-y-0.5 pb-1">
-              <SubItem to="/admin/master/vehicle-types" label="Jenis Kendaraan" />
-              <SubItem to="/admin/master/vehicle-brands" label="Merek Kendaraan" />
-              <SubItem to="/admin/master/transmissions" label="Transmisi" />
-              <SubItem to="/admin/master/rental-statuses" label="Status Rental" />
-              <SubItem to="/admin/master/payment-statuses" label="Status Pembayaran" />
-            </div>
-          )}
+  <button
+    onClick={() => setOpenKendaraan((v) => !v)}
+    className={groupBtnClass(isKendaraanActive)}
+    title={collapsed ? "Kendaraan" : undefined}
+  >
+    <Car size={16} className="flex-shrink-0" />
+    {!collapsed && (
+      <>
+        <span className="flex-1 text-left">Kendaraan</span>
+        <ChevronDown
+          size={13}
+          className={cx("transition-transform text-gray-400", openKendaraan && "rotate-180")}
+        />
+      </>
+    )}
+  </button>
 
-          <button
-            onClick={() => setOpenKendaraan((v) => !v)}
-            className={groupBtnClass(isKendaraanActive)}
-            title={collapsed ? "Kendaraan" : undefined}
-          >
-            <Car size={16} className="flex-shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="flex-1 text-left">Kendaraan</span>
-                <ChevronDown
-                  size={13}
-                  className={cx("transition-transform text-gray-400", openKendaraan && "rotate-180")}
-                />
-              </>
-            )}
-          </button>
+  {!collapsed && openKendaraan && (
+    <div className="pl-7 space-y-0.5 pb-1">
+      <SubItem to="/admin/kendaraan/mobil" label="Mobil" />
+      <SubItem to="/admin/kendaraan/motor" label="Motor" />
+    </div>
+  )}
 
-          {!collapsed && openKendaraan && (
-            <div className="pl-7 space-y-0.5 pb-1">
-              <SubItem to="/admin/kendaraan/mobil" label="Mobil" />
-              <SubItem to="/admin/kendaraan/motor" label="Motor" />
-            </div>
-          )}
+  <button
+    onClick={() => setOpenRent((v) => !v)}
+    className={groupBtnClass(isRentActive)}
+    title={collapsed ? "Penyewaan" : undefined}
+  >
+    <CalendarDays size={16} className="flex-shrink-0" />
+    {!collapsed && (
+      <>
+        <span className="flex-1 text-left">Penyewaan</span>
+        <ChevronDown
+          size={13}
+          className={cx("transition-transform text-gray-400", openRent && "rotate-180")}
+        />
+      </>
+    )}
+  </button>
 
-          <button
-            onClick={() => setOpenRent((v) => !v)}
-            className={groupBtnClass(isRentActive)}
-            title={collapsed ? "Penyewaan" : undefined}
-          >
-            <CalendarDays size={16} className="flex-shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="flex-1 text-left">Penyewaan</span>
-                <ChevronDown
-                  size={13}
-                  className={cx("transition-transform text-gray-400", openRent && "rotate-180")}
-                />
-              </>
-            )}
-          </button>
+  {!collapsed && openRent && (
+    <div className="pl-7 space-y-0.5 pb-1">
+      <SubItem to="/admin/penyewaan/mobil" label="Penyewaan Mobil" />
+      <SubItem to="/admin/penyewaan/motor" label="Penyewaan Motor" />
+    </div>
+  )}
 
-          {!collapsed && openRent && (
-            <div className="pl-7 space-y-0.5 pb-1">
-              <SubItem to="/admin/penyewaan/mobil" label="Penyewaan Mobil" />
-              <SubItem to="/admin/penyewaan/motor" label="Penyewaan Motor" />
-            </div>
-          )}
-        </div>
+  <SideItem
+    to="/admin/admins"
+    icon={Users}
+    label="Admin Management"
+    collapsed={collapsed}
+  />
+</div>
       </aside>
 
       <div
