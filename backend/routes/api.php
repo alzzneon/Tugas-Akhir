@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Admin\VehicleController;
 use App\Http\Controllers\Api\Admin\RentalController as AdminRentalController;
 
 use App\Http\Controllers\Api\NotificationController;
+use App\Services\FonnteService;
 
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RentalController;

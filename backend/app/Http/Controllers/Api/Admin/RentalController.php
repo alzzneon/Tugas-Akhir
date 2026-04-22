@@ -8,13 +8,22 @@ use App\Models\Payment;
 use App\Models\Rental;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\FonnteService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class RentalController extends ResourceController
 {
     use CreatesNotifications;
+
+    protected FonnteService $fonnteService;
+
+    public function __construct(FonnteService $fonnteService)
+    {
+        $this->fonnteService = $fonnteService;
+    }
 
     public function usersForRental()
     {
@@ -77,7 +86,7 @@ class RentalController extends ResourceController
             ->with([
                 'user:id,full_name,email,phone_number,address',
                 'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
-                'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
+                'vehicle.type:id,code,name',
                 'approvedBy:id,full_name',
                 'rejectedBy:id,full_name',
                 'payments',
@@ -148,8 +157,7 @@ class RentalController extends ResourceController
             $totalDays,
             $totalPrice,
             $directApprove,
-            $request,
-            $hasRegisteredUser
+            $request
         ) {
             return Rental::create([
                 'user_id' => $validated['user_id'] ?? null,
@@ -178,11 +186,11 @@ class RentalController extends ResourceController
                     : null,
                 'notes' => $this->buildNotes(
                     $validated['notes'] ?? null,
-                    $hasRegisteredUser ? null : [
+                    !$validated['user_id'] ? [
                         'customer_name' => $validated['customer_name'] ?? null,
                         'customer_phone' => $validated['customer_phone'] ?? null,
                         'customer_email' => $validated['customer_email'] ?? null,
-                    ]
+                    ] : null
                 ),
             ]);
         });
@@ -197,16 +205,27 @@ class RentalController extends ResourceController
         ]);
 
         if (!empty($rental->user_id)) {
-            $this->createNotification(
-                $rental->user_id,
-                $rental->status === 'approved' ? 'Penyewaan Disetujui' : 'Penyewaan Dibuat Admin',
-                $rental->status === 'approved'
-                    ? 'Admin telah membuat dan menyetujui penyewaan untuk akun Anda. Silakan lakukan pembayaran.'
-                    : 'Admin telah membuat penyewaan untuk akun Anda.',
-                $rental->status === 'approved' ? 'rental_approved' : 'rental_created_by_admin',
-                'rental',
-                $rental->id
-            );
+            if ($rental->status === 'approved') {
+                $this->createNotification(
+                    $rental->user_id,
+                    'Penyewaan Disetujui',
+                    'Pesanan Anda telah disetujui. Silakan lakukan pembayaran.',
+                    'rental_approved',
+                    'rental',
+                    $rental->id
+                );
+
+                $this->sendApprovalWhatsapp($rental);
+            } else {
+                $this->createNotification(
+                    $rental->user_id,
+                    'Penyewaan Dibuat Admin',
+                    'Admin telah membuat penyewaan untuk akun Anda.',
+                    'rental_created_by_admin',
+                    'rental',
+                    $rental->id
+                );
+            }
         }
 
         return $this->created($this->transformRental($rental));
@@ -251,6 +270,8 @@ class RentalController extends ResourceController
                 'rental',
                 $rental->id
             );
+
+            $this->sendApprovalWhatsapp($rental);
         }
 
         return $this->success($this->transformRental($rental), 'Rental berhasil di-approve.');
@@ -293,6 +314,8 @@ class RentalController extends ResourceController
                 'rental',
                 $rental->id
             );
+
+            $this->sendRejectedWhatsapp($rental, $validated['reason']);
         }
 
         return $this->success($this->transformRental($rental), 'Rental berhasil ditolak.');
@@ -333,7 +356,7 @@ class RentalController extends ResourceController
             ->with([
                 'user:id,full_name,email,phone_number,address',
                 'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
-                'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
+                'vehicle.type:id,code,name',
                 'approvedBy:id,full_name',
                 'rejectedBy:id,full_name',
                 'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
@@ -357,7 +380,7 @@ class RentalController extends ResourceController
         $rental->refresh()->load([
             'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
-            'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
+            'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
             'rejectedBy:id,full_name',
             'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
@@ -381,7 +404,14 @@ class RentalController extends ResourceController
             'notes' => ['nullable', 'string'],
         ]);
 
-        $rental = Rental::query()->findOrFail($id);
+        $rental = Rental::query()->with([
+            'user:id,full_name,email,phone_number,address',
+            'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
+            'vehicle.type:id,code,name',
+        ])->findOrFail($id);
+
+        $oldStatus = strtolower((string) $rental->status);
+        $oldPaymentStatus = strtolower((string) $rental->payment_status);
 
         DB::transaction(function () use ($validated, $rental) {
             $amount = (float) ($validated['amount'] ?? 0);
@@ -402,44 +432,260 @@ class RentalController extends ResourceController
                 ]);
             }
 
-            $finalPaymentStatus = in_array($requestedPaymentStatus, ['unpaid', 'paid'], true)
+            $finalPaymentStatus = in_array($requestedPaymentStatus, ['unpaid', 'paid', 'failed', 'expired'], true)
                 ? $requestedPaymentStatus
                 : 'unpaid';
 
             $finalStatus = $requestedStatus;
+
             if ($finalPaymentStatus === 'paid' && in_array($requestedStatus, ['approved', 'pending'], true)) {
                 $finalStatus = 'paid';
             }
 
-            $actualReturnAt = $requestedStatus === 'completed' && empty($rental->actual_return_at)
-                ? now()
-                : $rental->actual_return_at;
-
-            $actualPickupAt = $requestedStatus === 'ongoing' && empty($rental->actual_pickup_at)
-                ? now()
-                : $rental->actual_pickup_at;
-
-            $rental->update([
+            $payload = [
                 'status' => $finalStatus,
                 'payment_status' => $finalPaymentStatus,
-                'actual_pickup_at' => $actualPickupAt,
-                'actual_return_at' => $actualReturnAt,
-            ]);
+            ];
+
+            if ($finalStatus === 'approved' && empty($rental->approved_at)) {
+                $payload['approved_at'] = now();
+                $payload['approved_by'] = optional(auth()->user())->id;
+                $payload['rejected_at'] = null;
+                $payload['rejected_by'] = null;
+                $payload['rejection_reason'] = null;
+                $payload['payment_deadline'] = $rental->payment_deadline ?: now()->addHours(2);
+            }
+
+            if ($finalStatus === 'rejected') {
+                $payload['rejected_at'] = now();
+                $payload['rejected_by'] = optional(auth()->user())->id;
+                $payload['rejection_reason'] = $validated['notes'] ?? 'Pesanan ditolak oleh admin.';
+                $payload['payment_deadline'] = null;
+            }
+
+            if ($finalStatus === 'ongoing' && empty($rental->actual_pickup_at)) {
+                $payload['actual_pickup_at'] = now();
+            }
+
+            if ($finalStatus === 'completed' && empty($rental->actual_return_at)) {
+                $payload['actual_return_at'] = now();
+            }
+
+            $rental->update($payload);
         });
 
-        $rental->load([
+        $rental->refresh()->load([
             'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
             'rejectedBy:id,full_name',
             'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
+            'lateFines:id,rental_id,total_fine,status,calculation_type,late_hours,late_minutes',
         ]);
+
+        $newStatus = strtolower((string) $rental->status);
+        $newPaymentStatus = strtolower((string) $rental->payment_status);
+
+        if (!empty($rental->user_id)) {
+            if ($oldStatus !== 'approved' && $newStatus === 'approved') {
+                $this->createNotification(
+                    $rental->user_id,
+                    'Penyewaan Disetujui',
+                    'Pesanan Anda telah disetujui. Silakan lakukan pembayaran.',
+                    'rental_approved',
+                    'rental',
+                    $rental->id
+                );
+
+                $this->sendApprovalWhatsapp($rental);
+            }
+
+            if ($oldStatus !== 'rejected' && $newStatus === 'rejected') {
+                $reason = $rental->rejection_reason ?: 'Pesanan ditolak oleh admin.';
+
+                $this->createNotification(
+                    $rental->user_id,
+                    'Penyewaan Ditolak',
+                    'Pesanan Anda ditolak oleh admin.',
+                    'rental_rejected',
+                    'rental',
+                    $rental->id
+                );
+
+                $this->sendRejectedWhatsapp($rental, $reason);
+            }
+
+            if ($oldPaymentStatus !== 'paid' && $newPaymentStatus === 'paid') {
+                $this->createNotification(
+                    $rental->user_id,
+                    'Pembayaran Terkonfirmasi',
+                    'Pembayaran Anda telah dikonfirmasi.',
+                    'payment_paid',
+                    'rental',
+                    $rental->id
+                );
+            }
+        }
 
         return $this->success(
             $this->transformRental($rental),
             'Status rental dan pembayaran berhasil diperbarui.'
         );
+    }
+
+    private function sendApprovalWhatsapp(Rental $rental): void
+    {
+        $phone = $this->resolveWhatsappPhone($rental);
+
+        if (!$phone) {
+            return;
+        }
+
+        $customerName = $rental->user?->full_name ?: $rental->customer_name ?: 'Customer';
+
+        $message =
+            "Halo {$customerName},\n\n" .
+            "Pesanan Anda telah disetujui.\n" .
+            "Kode Booking: {$rental->booking_code}\n" .
+            "Kendaraan: " . ($rental->vehicle->name ?? '-') . "\n" .
+            "Tanggal Sewa: " .
+            optional($rental->start_date)->format('d/m/Y') . " - " .
+            optional($rental->end_date)->format('d/m/Y') . "\n" .
+            "Total: Rp " . number_format((float) $rental->total_price, 0, ',', '.') . "\n\n" .
+            "Silakan lanjutkan proses pembayaran.\n" .
+            "Terima kasih.";
+
+        try {
+            $response = $this->fonnteService->sendMessage($phone, $message);
+
+            $this->logWhatsappMessage(
+                $rental->id,
+                $rental->user_id,
+                $phone,
+                $message,
+                'sent',
+                'approval',
+                isset($response['id']) ? (string) $response['id'] : null,
+                null
+            );
+        } catch (\Throwable $e) {
+            Log::error('Gagal kirim WhatsApp approval', [
+                'rental_id' => $rental->id,
+                'user_id' => $rental->user_id,
+                'phone_number' => $phone,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->logWhatsappMessage(
+                $rental->id,
+                $rental->user_id,
+                $phone,
+                $message,
+                'failed',
+                'approval',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+    private function sendRejectedWhatsapp(Rental $rental, string $reason): void
+    {
+        $phone = $this->resolveWhatsappPhone($rental);
+
+        if (!$phone) {
+            return;
+        }
+
+        $customerName = $rental->user?->full_name ?: $rental->customer_name ?: 'Customer';
+
+        $message =
+            "Halo {$customerName},\n\n" .
+            "Mohon maaf, pesanan Anda ditolak.\n" .
+            "Kode Booking: {$rental->booking_code}\n" .
+            "Kendaraan: " . ($rental->vehicle->name ?? '-') . "\n" .
+            "Alasan: {$reason}\n\n" .
+            "Silakan lakukan pemesanan ulang dengan jadwal atau kendaraan lain.\n" .
+            "Terima kasih.";
+
+        try {
+            $response = $this->fonnteService->sendMessage($phone, $message);
+
+            $this->logWhatsappMessage(
+                $rental->id,
+                $rental->user_id,
+                $phone,
+                $message,
+                'sent',
+                'rejection',
+                isset($response['id']) ? (string) $response['id'] : null,
+                null
+            );
+        } catch (\Throwable $e) {
+            Log::error('Gagal kirim WhatsApp rejection', [
+                'rental_id' => $rental->id,
+                'user_id' => $rental->user_id,
+                'phone_number' => $phone,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->logWhatsappMessage(
+                $rental->id,
+                $rental->user_id,
+                $phone,
+                $message,
+                'failed',
+                'rejection',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+    private function resolveWhatsappPhone(Rental $rental): ?string
+    {
+        $phone = $rental->user?->phone_number ?: $rental->customer_phone;
+
+        if (!$phone) {
+            return null;
+        }
+
+        return trim((string) $phone);
+    }
+
+    private function logWhatsappMessage(
+        ?int $rentalId,
+        ?string $userId,
+        ?string $phoneNumber,
+        string $message,
+        string $status,
+        ?string $messageType = 'notification',
+        ?string $providerMessageId = null,
+        ?string $errorMessage = null
+    ): void {
+        try {
+            DB::table('whatsapp_messages')->insert([
+                'user_id' => $userId,
+                'phone_number' => $phoneNumber,
+                'message_content' => $message,
+                'status' => $status,
+                'sent_at' => $status === 'sent' ? now() : null,
+                'rental_id' => $rentalId,
+                'message_type' => $messageType,
+                'provider' => 'fonnte',
+                'provider_message_id' => $providerMessageId,
+                'updated_at' => now(),
+                'error_message' => $errorMessage,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Gagal menyimpan log WhatsApp', [
+                'rental_id' => $rentalId,
+                'user_id' => $userId,
+                'phone_number' => $phoneNumber,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function hasConflict(int $vehicleId, Carbon $start, Carbon $end, ?int $ignoreRentalId = null): bool
