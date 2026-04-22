@@ -40,7 +40,7 @@ class RentalController extends ResourceController
     {
         $query = Rental::query()
             ->with([
-                'user:id,full_name,email,phone_number',
+                'user:id,full_name,email,phone_number,address',
                 'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
                 'vehicle.type:id,code,name',
                 'approvedBy:id,full_name',
@@ -75,7 +75,7 @@ class RentalController extends ResourceController
     {
         $rental = Rental::query()
             ->with([
-                'user:id,full_name,email,phone_number',
+                'user:id,full_name,email,phone_number,address',
                 'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
                 'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
                 'approvedBy:id,full_name',
@@ -188,7 +188,7 @@ class RentalController extends ResourceController
         });
 
         $rental->load([
-            'user:id,full_name,email,phone_number',
+            'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
@@ -235,7 +235,7 @@ class RentalController extends ResourceController
         ]);
 
         $rental->load([
-            'user:id,full_name,email,phone_number',
+            'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
@@ -277,7 +277,7 @@ class RentalController extends ResourceController
         ]);
 
         $rental->load([
-            'user:id,full_name,email,phone_number',
+            'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
@@ -312,7 +312,7 @@ class RentalController extends ResourceController
         ]);
 
         $rental->load([
-            'user:id,full_name,email,phone_number',
+            'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
@@ -331,7 +331,7 @@ class RentalController extends ResourceController
 
         $rental = Rental::query()
             ->with([
-                'user:id,full_name,email,phone_number',
+                'user:id,full_name,email,phone_number,address',
                 'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
                 'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
                 'approvedBy:id,full_name',
@@ -355,7 +355,7 @@ class RentalController extends ResourceController
         ]);
 
         $rental->refresh()->load([
-            'user:id,full_name,email,phone_number',
+            'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name,late_fee_per_hour,late_fee_threshold_hours',
             'approvedBy:id,full_name',
@@ -428,7 +428,7 @@ class RentalController extends ResourceController
         });
 
         $rental->load([
-            'user:id,full_name,email,phone_number',
+            'user:id,full_name,email,phone_number,address',
             'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
             'vehicle.type:id,code,name',
             'approvedBy:id,full_name',
@@ -543,6 +543,7 @@ class RentalController extends ResourceController
                 'full_name' => $r->user->full_name,
                 'email' => $r->user->email,
                 'phone_number' => $r->user->phone_number,
+                'address' => $r->user->address,
             ] : null,
 
             'manual_customer' => $manualCustomer,

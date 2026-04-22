@@ -16,14 +16,6 @@ export default function Home() {
           <p className="text-lg text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
             Proses verifikasi cepat dengan armada kendaraan keluaran terbaru. Siap menemani perjalanan Anda kapan saja.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-red-600 text-white px-10 py-4 rounded-full font-medium hover:bg-red-700 transition-all shadow-lg shadow-red-200">
-              Sewa Sekarang
-            </button>
-            <button className="bg-white text-slate-700 border border-slate-200 px-10 py-4 rounded-full font-medium hover:bg-slate-50 transition-all">
-              Lihat Armada
-            </button>
-          </div>
         </div>
       </section>
 
