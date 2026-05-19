@@ -27,9 +27,10 @@ class UserController extends Controller
         ]);
 
         $user = User::create([
-            'role' => $request->role,
+            // Tambahkan strtolower(trim(...)) agar input role dipastikan 100% murni sesuai ENUM DB
+            'role' => strtolower(trim($request->role)), 
             'full_name' => $request->full_name,
-            'email' => $request->email,
+            'email' => strtolower(trim($request->email)),
             'password' => Hash::make($request->password),
             'phone_number' => $request->phone_number,
             'address' => $request->address,
@@ -43,7 +44,7 @@ class UserController extends Controller
             'data' => $user
         ]);
     }
-
+    
     // UPDATE user
     public function update(Request $request, $id)
     {

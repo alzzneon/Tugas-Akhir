@@ -22,7 +22,6 @@ class User extends Authenticatable
         'address',
         'birth_place',
         'birth_date',
-        'position',
         'is_active',
         'email_verified_at',
     ];
@@ -39,5 +38,6 @@ class User extends Authenticatable
         'birth_date' => 'date',
         'is_active' => 'boolean',
         'email_verified_at' => 'datetime',
+        'role' => 'string',
     ];
 }

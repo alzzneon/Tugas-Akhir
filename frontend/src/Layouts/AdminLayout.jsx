@@ -289,8 +289,8 @@ export default function AdminLayout() {
       <SubItem to="/admin/master/vehicle-types" label="Jenis Kendaraan" />
       <SubItem to="/admin/master/vehicle-brands" label="Merek Kendaraan" />
       <SubItem to="/admin/master/transmissions" label="Transmisi" />
-      <SubItem to="/admin/master/rental-statuses" label="Status Rental" />
-      <SubItem to="/admin/master/payment-statuses" label="Status Pembayaran" />
+      {/* <SubItem to="/admin/master/rental-statuses" label="Status Rental" />
+      <SubItem to="/admin/master/payment-statuses" label="Status Pembayaran" /> */}
     </div>
   )}
 
