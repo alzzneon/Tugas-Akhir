@@ -56,6 +56,7 @@ class RentalController extends ResourceController
                 'rejectedBy:id,full_name',
                 'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
                 'lateFines:id,rental_id,total_fine,status,calculation_type,late_hours,late_minutes',
+                'damages:id,rental_id,vehicle_id,description,repair_cost,status',
             ])
             ->latest('id');
 
@@ -91,6 +92,7 @@ class RentalController extends ResourceController
                 'rejectedBy:id,full_name',
                 'payments',
                 'lateFines',
+                'damages:id,rental_id,vehicle_id,description,repair_cost,status',
             ])
             ->findOrFail($id);
 
@@ -361,6 +363,7 @@ class RentalController extends ResourceController
                 'rejectedBy:id,full_name',
                 'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
                 'lateFines',
+                'damages:id,rental_id,vehicle_id,description,repair_cost,status',
             ])
             ->findOrFail($id);
 
@@ -375,6 +378,7 @@ class RentalController extends ResourceController
         $rental->update([
             'status' => 'completed',
             'actual_return_at' => $actualReturn,
+            'returned_at' => now(),
         ]);
 
         $rental->refresh()->load([
@@ -831,4 +835,93 @@ class RentalController extends ResourceController
             'updated_at' => optional($r->updated_at)->toDateTimeString(),
         ];
     }
+
+public function inspectVehicle(Request $request, int $id)
+{
+    $validated = $request->validate([
+        'has_late_fine' => 'required|boolean',
+        'late_fine_amount' => 'nullable|numeric|min:0',
+
+        'has_damage' => 'required|boolean',
+
+        'damage_description' => 'nullable|string',
+        'damage_cost' => 'nullable|numeric|min:0',
+    ]);
+
+    $rental = Rental::findOrFail($id);
+
+    if ($rental->status !== 'returned') {
+        return $this->error('Rental belum dikembalikan.', 422);
+    }
+
+    DB::transaction(function () use ($validated, $rental) {
+
+        $totalExtra = 0;
+
+        /*
+        |--------------------------------------------------------------------------
+        | LATE FINE
+        |--------------------------------------------------------------------------
+        */
+
+        if ($validated['has_late_fine']) {
+
+            $fineAmount = (float) $validated['late_fine_amount'];
+
+            $rental->lateFines()->create([
+                'total_fine' => $fineAmount,
+                'status' => 'unpaid',
+            ]);
+
+            $totalExtra += $fineAmount;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | VEHICLE DAMAGE
+        |--------------------------------------------------------------------------
+        */
+
+        if ($validated['has_damage']) {
+
+            $damageCost = (float) $validated['damage_cost'];
+
+            $rental->damages()->create([
+                'vehicle_id' => $rental->vehicle_id,
+                'description' => $validated['damage_description'],
+                'repair_cost' => $damageCost,
+                'status' => 'pending',
+            ]);
+
+            $totalExtra += $damageCost;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE RENTAL
+        |--------------------------------------------------------------------------
+        */
+
+        $newStatus = $totalExtra > 0
+            ? 'waiting_payment'
+            : 'completed';
+
+        $rental->update([
+            'status' => $newStatus,
+            'inspected_at' => now(),
+            'has_late_fine' => $validated['has_late_fine'],
+            'has_damage' => $validated['has_damage'],
+            'total_extra_cost' => $totalExtra,
+        ]);
+    });
+
+    return $this->success(
+        $rental->fresh([
+            'lateFines',
+            'damages',
+        ]),
+        'Inspeksi kendaraan berhasil.'
+    );
+}
+
 }

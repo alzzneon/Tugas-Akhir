@@ -70,6 +70,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::patch('/rentals/{id}/mark-ongoing', [AdminRentalController::class, 'markOngoing']);
     Route::patch('/rentals/{id}/complete', [AdminRentalController::class, 'complete']);
     Route::patch('/rentals/{id}/update-status-payment', [AdminRentalController::class, 'updateStatusPayment']);
+    Route::post('/rentals/{id}/inspect', [AdminRentalController::class, 'inspectVehicle']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

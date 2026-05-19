@@ -78,4 +78,9 @@ class Rental extends Model
     {
         return $this->hasMany(LateFine::class, 'rental_id');
     }
+
+    public function damages()
+    {
+        return $this->hasMany(VehicleDamage::class, 'rental_id');
+    }
 }
