@@ -8,8 +8,14 @@ class OtpCode extends Model
 {
     protected $table = 'otp_codes';
 
+    const PURPOSE_REGISTER = 'register';
+    const PURPOSE_LOGIN = 'login';
+    const PURPOSE_FORGOT_PASSWORD = 'forgot_password';
+    const PURPOSE_EMAIL_VERIFICATION = 'email_verification';
+
     protected $fillable = [
         'user_id',
+        'phone_number',
         'email',
         'otp_code',
         'purpose',
@@ -21,9 +27,4 @@ class OtpCode extends Model
         'expired_at' => 'datetime',
         'verified_at' => 'datetime',
     ];
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
 }

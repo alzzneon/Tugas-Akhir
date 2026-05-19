@@ -6,16 +6,25 @@ const API_BASE = "http://127.0.0.1:8000/api";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
+
+  const [form, setForm] = useState({
+    phone_number: "",
+    password: "",
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
 
@@ -25,13 +34,19 @@ export default function Login() {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
-      if (res.data.user.role === "admin" || res.data.user.role === "super_admin") {
+      if (
+        res.data.user.role === "admin" ||
+        res.data.user.role === "super_admin"
+      ) {
         navigate("/admin/dashboard");
       } else {
         navigate("/");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Email atau password salah.");
+      setError(
+        err.response?.data?.message ||
+          "Nomor HP atau password salah."
+      );
     } finally {
       setLoading(false);
     }
@@ -41,7 +56,10 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 font-sans">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-slate-900">Selamat Datang</h2>
+          <h2 className="text-3xl font-bold text-slate-900">
+            Selamat Datang
+          </h2>
+
           <p className="text-slate-500 mt-2 text-sm">
             Masuk untuk mulai merencanakan perjalanan Anda
           </p>
@@ -59,25 +77,31 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* NOMOR HP */}
+
             <div>
               <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                Email
+                Nomor HP
               </label>
+
               <input
-                type="email"
-                name="email"
-                value={form.email}
+                type="text"
+                name="phone_number"
+                value={form.phone_number}
                 onChange={handleChange}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all placeholder:text-slate-300"
-                placeholder="nama@email.com"
+                placeholder="08123456789"
                 required
               />
             </div>
+
+            {/* PASSWORD */}
 
             <div>
               <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
                 Password
               </label>
+
               <input
                 type="password"
                 name="password"
@@ -89,6 +113,8 @@ export default function Login() {
               />
             </div>
 
+            {/* LUPA PASSWORD */}
+
             <div className="flex justify-end">
               <Link
                 to="/forgot-password"
@@ -97,6 +123,8 @@ export default function Login() {
                 Lupa password?
               </Link>
             </div>
+
+            {/* BUTTON */}
 
             <button
               type="submit"
@@ -110,7 +138,10 @@ export default function Login() {
           <div className="mt-8 pt-6 border-t border-slate-50 text-center">
             <p className="text-slate-500 text-sm">
               Belum memiliki akun?{" "}
-              <Link to="/register" className="text-red-600 font-bold hover:underline">
+              <Link
+                to="/register"
+                className="text-red-600 font-bold hover:underline"
+              >
                 Daftar Gratis
               </Link>
             </p>

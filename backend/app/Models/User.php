@@ -19,6 +19,7 @@ class User extends Authenticatable
         'email',
         'password',
         'phone_number',
+        'phone_verified_at',
         'address',
         'birth_place',
         'birth_date',
@@ -32,11 +33,13 @@ class User extends Authenticatable
     ];
 
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     protected $casts = [
         'birth_date' => 'date',
         'is_active' => 'boolean',
+        'phone_verified_at' => 'datetime',
         'email_verified_at' => 'datetime',
         'role' => 'string',
     ];
