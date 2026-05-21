@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+
 import DataTable from "../../../Components/Admin/DataTable";
 import Modal from "../../../Components/Admin/Modal";
 
@@ -30,18 +31,24 @@ function getStatusColor(s) {
   switch (String(s || "").toLowerCase()) {
     case "pending":
       return "yellow";
+
     case "approved":
       return "blue";
+
     case "paid":
     case "completed":
       return "green";
+
     case "rejected":
     case "cancelled":
     case "expired":
       return "red";
+
     case "ongoing":
     case "overdue":
+    case "waiting_payment":
       return "indigo";
+
     default:
       return "gray";
   }
@@ -51,11 +58,14 @@ function getPaymentStatusColor(s) {
   switch (String(s || "").toLowerCase()) {
     case "paid":
       return "green";
+
     case "failed":
     case "expired":
       return "red";
+
     case "unpaid":
       return "yellow";
+
     default:
       return "gray";
   }
@@ -70,6 +80,7 @@ function getRentalStatusLabel(s) {
       ongoing: "Sedang Berjalan",
       completed: "Selesai",
       overdue: "Terlambat",
+      waiting_payment: "Menunggu Pembayaran Denda",
       rejected: "Ditolak",
       cancelled: "Dibatalkan",
       expired: "Kedaluwarsa",
@@ -90,20 +101,6 @@ function getPaymentStatusLabel(s) {
 
 function formatCurrency(v) {
   return `Rp ${Number(v || 0).toLocaleString("id-ID")}`;
-}
-
-function formatDateTime(v) {
-  if (!v) return "-";
-
-  const d = new Date(v);
-
-  return d.toLocaleString("id-ID", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 const inputCls = (err) =>
@@ -131,7 +128,7 @@ function SectionDivider({ label }) {
   );
 }
 
-export default function RentalsList({ type = "mobil" }) {
+export default function RentalsList() {
   const token = localStorage.getItem("token");
 
   const api = useMemo(
@@ -147,7 +144,10 @@ export default function RentalsList({ type = "mobil" }) {
   );
 
   const [rows, setRows] = useState([]);
+
   const [loading, setLoading] = useState(true);
+
+  const [msg, setMsg] = useState("");
 
   const [openEdit, setOpenEdit] = useState(false);
 
@@ -155,21 +155,28 @@ export default function RentalsList({ type = "mobil" }) {
 
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const [msg, setMsg] = useState("");
-
   const [editForm, setEditForm] = useState({
     status: "",
     payment_status: "",
-    payment_type: "full",
+
     payment_method: "transfer",
+
+    payment_type: "full",
+
     amount: "",
+
     notes: "",
 
-    returned_at: "",
+    actual_return_at: "",
+
+    has_late_fine: false,
+
+    late_fine_amount: "",
 
     damages: [],
 
     damage_name: "",
+
     damage_cost: "",
   });
 
@@ -192,16 +199,22 @@ export default function RentalsList({ type = "mobil" }) {
   }, []);
 
   function handleEditChange(e) {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
 
     setEditForm((prev) => ({
       ...prev,
-      [name]: value,
+
+      [name]:
+        type === "checkbox"
+          ? checked
+          : value,
     }));
   }
 
   function addDamageItem() {
-    if (!editForm.damage_name || !editForm.damage_cost) return;
+    if (!editForm.damage_name || !editForm.damage_cost) {
+      return;
+    }
 
     setEditForm((prev) => ({
       ...prev,
@@ -210,12 +223,14 @@ export default function RentalsList({ type = "mobil" }) {
         ...prev.damages,
 
         {
-          item_name: prev.damage_name,
+          description: prev.damage_name,
+
           repair_cost: Number(prev.damage_cost),
         },
       ],
 
       damage_name: "",
+
       damage_cost: "",
     }));
   }
@@ -224,7 +239,9 @@ export default function RentalsList({ type = "mobil" }) {
     setEditForm((prev) => ({
       ...prev,
 
-      damages: prev.damages.filter((_, i) => i !== index),
+      damages: prev.damages.filter(
+        (_, i) => i !== index
+      ),
     }));
   }
 
@@ -233,17 +250,28 @@ export default function RentalsList({ type = "mobil" }) {
 
     setEditForm({
       status: row.status || "",
-      payment_status: row.payment_status || "",
-      payment_type: "full",
+
+      payment_status:
+        row.payment_status || "",
+
       payment_method: "transfer",
+
+      payment_type: "full",
+
       amount: "",
+
       notes: "",
 
-      returned_at: "",
+      actual_return_at: "",
+
+      has_late_fine: false,
+
+      late_fine_amount: "",
 
       damages: [],
 
       damage_name: "",
+
       damage_cost: "",
     });
 
@@ -256,47 +284,164 @@ export default function RentalsList({ type = "mobil" }) {
     setSelectedRow(null);
   }
 
-  async function handleSaveEdit(e) {
-    e.preventDefault();
+  async function updateStatusPayment() {
+    await api.patch(
+      `/admin/rentals/${selectedRow.id}/update-status-payment`,
+      {
+        status: editForm.status,
 
-    try {
-      setSavingEdit(true);
+        payment_status:
+          editForm.payment_status,
 
+        payment_method:
+          editForm.payment_method,
+
+        payment_type:
+          editForm.payment_type,
+
+        amount: editForm.amount
+          ? Number(editForm.amount)
+          : 0,
+
+        notes: editForm.notes,
+      }
+    );
+  }
+
+  async function inspectVehicle() {
+    const hasDamage =
+      editForm.damages.length > 0;
+
+    const hasLateFine =
+      editForm.has_late_fine;
+
+    if (!hasDamage && !hasLateFine) {
+      return;
+    }
+
+    await api.post(
+      `/admin/rentals/${selectedRow.id}/inspect`,
+      {
+        has_late_fine: hasLateFine,
+
+        late_fine_amount:
+          editForm.late_fine_amount
+            ? Number(
+                editForm.late_fine_amount
+              )
+            : 0,
+
+        has_damage: hasDamage,
+
+        damages: editForm.damages,
+      }
+    );
+  }
+
+  async function completeRental() {
+    if (
+      editForm.status !== "completed"
+    ) {
+      return;
+    }
+
+    await api.post(
+      `/admin/rentals/${selectedRow.id}/complete`,
+      {
+        actual_return_at:
+          editForm.actual_return_at ||
+          null,
+      }
+    );
+  }
+
+async function handleSaveEdit(e) {
+  e.preventDefault();
+
+  try {
+    setSavingEdit(true);
+    setMsg("");
+
+    const currentStatus = selectedRow.status;
+    const nextStatus = editForm.status;
+
+    if (
+      currentStatus === "pending" &&
+      nextStatus === "approved"
+    ) {
+      await api.patch(
+        `/admin/rentals/${selectedRow.id}/approve`
+      );
+    }
+
+    else if (nextStatus === "rejected") {
+      await api.patch(
+        `/admin/rentals/${selectedRow.id}/reject`,
+        {
+          reason:
+            editForm.notes ||
+            "Ditolak oleh admin",
+        }
+      );
+    }
+
+    else if (
+      currentStatus === "paid" &&
+      nextStatus === "ongoing"
+    ) {
+      await api.patch(
+        `/admin/rentals/${selectedRow.id}/mark-ongoing`
+      );
+    }
+
+    else if (
+      ["ongoing", "overdue"].includes(
+        currentStatus
+      ) &&
+      nextStatus === "completed"
+    ) {
+      await api.patch(
+        `/admin/rentals/${selectedRow.id}/complete`,
+        {
+          actual_return_at:
+            editForm.returned_at || null,
+        }
+      );
+    }
+
+    else {
       await api.patch(
         `/admin/rentals/${selectedRow.id}/update-status-payment`,
         {
           status: editForm.status,
-
-          payment_status: editForm.payment_status,
-
-          payment_type: editForm.payment_type,
-
-          payment_method: editForm.payment_method,
-
+          payment_status:
+            editForm.payment_status,
+          payment_type:
+            editForm.payment_type,
+          payment_method:
+            editForm.payment_method,
           amount: editForm.amount
             ? Number(editForm.amount)
             : 0,
-
           notes: editForm.notes,
-
-          returned_at: editForm.returned_at || null,
-
-          damages: editForm.damages,
         }
       );
-
-      await fetchRentals();
-
-      closeEditModal();
-    } catch (err) {
-      setMsg(
-        err.response?.data?.message ||
-          "Gagal update rental."
-      );
-    } finally {
-      setSavingEdit(false);
     }
+
+    await fetchRentals();
+
+    closeEditModal();
+  } catch (err) {
+    console.log(err);
+
+    setMsg(
+      err.response?.data?.message ||
+        "Gagal update rental."
+    );
+  } finally {
+    setSavingEdit(false);
   }
+}
 
   return (
     <div className="space-y-4">
@@ -310,31 +455,49 @@ export default function RentalsList({ type = "mobil" }) {
       <DataTable
         title="Daftar Rental"
         subtitle="Kelola rental kendaraan"
-
-        columns={[
-          { key: "booking_code", label: "Kode" },
-          { key: "customer", label: "Penyewa" },
-          { key: "vehicle", label: "Kendaraan" },
-          { key: "total_price", label: "Total" },
-          { key: "status", label: "Status" },
-          { key: "payment_status", label: "Pembayaran" },
-        ]}
-
         rows={rows}
-
         loading={loading}
-
         showActions
+        columns={[
+          {
+            key: "booking_code",
+            label: "Kode",
+          },
+
+          {
+            key: "customer",
+            label: "Penyewa",
+          },
+
+          {
+            key: "vehicle",
+            label: "Kendaraan",
+          },
+
+          {
+            key: "total_price",
+            label: "Total",
+          },
+
+          {
+            key: "status",
+            label: "Status",
+          },
+
+          {
+            key: "payment_status",
+            label: "Pembayaran",
+          },
+        ]}
 
         renderCell={({ row, col }) => {
 
           if (col.key === "customer") {
             return (
-              <div>
-                {row.user?.full_name ||
-                  row.manual_customer?.customer_name ||
-                  "-"}
-              </div>
+              row.user?.full_name ||
+              row.manual_customer
+                ?.customer_name ||
+              "-"
             );
           }
 
@@ -343,18 +506,28 @@ export default function RentalsList({ type = "mobil" }) {
           }
 
           if (col.key === "total_price") {
-            return formatCurrency(row.total_price);
+            return formatCurrency(
+              row.total_price
+            );
           }
 
           if (col.key === "status") {
             return (
-              <Badge color={getStatusColor(row.status)}>
-                {getRentalStatusLabel(row.status)}
+              <Badge
+                color={getStatusColor(
+                  row.status
+                )}
+              >
+                {getRentalStatusLabel(
+                  row.status
+                )}
               </Badge>
             );
           }
 
-          if (col.key === "payment_status") {
+          if (
+            col.key === "payment_status"
+          ) {
             return (
               <Badge
                 color={getPaymentStatusColor(
@@ -373,7 +546,9 @@ export default function RentalsList({ type = "mobil" }) {
 
         actionsRender={({ row }) => (
           <button
-            onClick={() => openEditModal(row)}
+            onClick={() =>
+              openEditModal(row)
+            }
             className="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white"
           >
             Edit
@@ -411,8 +586,10 @@ export default function RentalsList({ type = "mobil" }) {
                 </span>
 
                 <span>
-                  {selectedRow.user?.full_name ||
-                    selectedRow.manual_customer
+                  {selectedRow.user
+                    ?.full_name ||
+                    selectedRow
+                      .manual_customer
                       ?.customer_name}
                 </span>
               </div>
@@ -423,7 +600,10 @@ export default function RentalsList({ type = "mobil" }) {
                 </span>
 
                 <span>
-                  {selectedRow.vehicle?.name}
+                  {
+                    selectedRow.vehicle
+                      ?.name
+                  }
                 </span>
               </div>
 
@@ -446,14 +626,19 @@ export default function RentalsList({ type = "mobil" }) {
             <div className="grid grid-cols-2 gap-4">
 
               <div>
-                <FieldLabel>Status Rental</FieldLabel>
+                <FieldLabel>
+                  Status Rental
+                </FieldLabel>
 
                 <select
                   name="status"
                   value={editForm.status}
-                  onChange={handleEditChange}
+                  onChange={
+                    handleEditChange
+                  }
                   className={inputCls(false)}
                 >
+
                   <option value="pending">
                     Pending
                   </option>
@@ -481,18 +666,26 @@ export default function RentalsList({ type = "mobil" }) {
                   <option value="cancelled">
                     Cancelled
                   </option>
+
                 </select>
               </div>
 
               <div>
-                <FieldLabel>Status Pembayaran</FieldLabel>
+                <FieldLabel>
+                  Status Pembayaran
+                </FieldLabel>
 
                 <select
                   name="payment_status"
-                  value={editForm.payment_status}
-                  onChange={handleEditChange}
+                  value={
+                    editForm.payment_status
+                  }
+                  onChange={
+                    handleEditChange
+                  }
                   className={inputCls(false)}
                 >
+
                   <option value="unpaid">
                     Unpaid
                   </option>
@@ -508,18 +701,26 @@ export default function RentalsList({ type = "mobil" }) {
                   <option value="expired">
                     Expired
                   </option>
+
                 </select>
               </div>
 
               <div>
-                <FieldLabel>Metode Pembayaran</FieldLabel>
+                <FieldLabel>
+                  Metode Pembayaran
+                </FieldLabel>
 
                 <select
                   name="payment_method"
-                  value={editForm.payment_method}
-                  onChange={handleEditChange}
+                  value={
+                    editForm.payment_method
+                  }
+                  onChange={
+                    handleEditChange
+                  }
                   className={inputCls(false)}
                 >
+
                   <option value="transfer">
                     Transfer
                   </option>
@@ -527,46 +728,97 @@ export default function RentalsList({ type = "mobil" }) {
                   <option value="cash">
                     Cash
                   </option>
+
                 </select>
               </div>
 
               <div>
-                <FieldLabel>Nominal Bayar</FieldLabel>
+                <FieldLabel>
+                  Nominal Bayar
+                </FieldLabel>
 
                 <input
                   type="number"
                   name="amount"
                   value={editForm.amount}
-                  onChange={handleEditChange}
+                  onChange={
+                    handleEditChange
+                  }
                   className={inputCls(false)}
                 />
               </div>
 
               <div className="col-span-2">
                 <FieldLabel>
-                  Tanggal Pengembalian
+                  Actual Return
                 </FieldLabel>
 
                 <input
                   type="datetime-local"
-                  name="returned_at"
-                  value={editForm.returned_at}
-                  onChange={handleEditChange}
+                  name="actual_return_at"
+                  value={
+                    editForm.actual_return_at
+                  }
+                  onChange={
+                    handleEditChange
+                  }
                   className={inputCls(false)}
                 />
               </div>
 
               <div className="col-span-2">
-                <FieldLabel>Catatan</FieldLabel>
+                <FieldLabel>
+                  Catatan
+                </FieldLabel>
 
                 <textarea
-                  name="notes"
                   rows={3}
+                  name="notes"
                   value={editForm.notes}
-                  onChange={handleEditChange}
+                  onChange={
+                    handleEditChange
+                  }
                   className={inputCls(false)}
                 />
               </div>
+
+            </div>
+
+            <SectionDivider label="DENDA KETERLAMBATAN" />
+
+            <div className="space-y-3">
+
+              <label className="flex items-center gap-2 text-sm">
+
+                <input
+                  type="checkbox"
+                  name="has_late_fine"
+                  checked={
+                    editForm.has_late_fine
+                  }
+                  onChange={
+                    handleEditChange
+                  }
+                />
+
+                Ada denda keterlambatan
+
+              </label>
+
+              {editForm.has_late_fine && (
+                <input
+                  type="number"
+                  name="late_fine_amount"
+                  placeholder="Jumlah denda"
+                  value={
+                    editForm.late_fine_amount
+                  }
+                  onChange={
+                    handleEditChange
+                  }
+                  className={inputCls(false)}
+                />
+              )}
 
             </div>
 
@@ -578,12 +830,16 @@ export default function RentalsList({ type = "mobil" }) {
 
                 <input
                   type="text"
-                  placeholder="Nama kerusakan"
-                  value={editForm.damage_name}
-                  onChange={(e)=>
-                    setEditForm(prev => ({
+                  placeholder="Deskripsi kerusakan"
+                  value={
+                    editForm.damage_name
+                  }
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
                       ...prev,
-                      damage_name:e.target.value
+
+                      damage_name:
+                        e.target.value,
                     }))
                   }
                   className={inputCls(false)}
@@ -592,15 +848,20 @@ export default function RentalsList({ type = "mobil" }) {
                 <input
                   type="number"
                   placeholder="Biaya perbaikan"
-                  value={editForm.damage_cost}
-                  onChange={(e)=>
-                    setEditForm(prev => ({
+                  value={
+                    editForm.damage_cost
+                  }
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
                       ...prev,
-                      damage_cost:e.target.value
+
+                      damage_cost:
+                        e.target.value,
                     }))
                   }
                   className={inputCls(false)}
                 />
+
               </div>
 
               <button
@@ -613,43 +874,56 @@ export default function RentalsList({ type = "mobil" }) {
 
               <div className="space-y-2">
 
-                {editForm.damages.map((dmg, idx)=>(
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
-                  >
-
-                    <div>
-                      <p className="text-sm font-medium">
-                        {dmg.item_name}
-                      </p>
-
-                      <p className="text-xs text-gray-400">
-                        {formatCurrency(
-                          dmg.repair_cost
-                        )}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={()=>
-                        removeDamage(idx)
-                      }
-                      className="text-xs text-red-500"
+                {editForm.damages.map(
+                  (dmg, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
                     >
-                      Hapus
-                    </button>
-                  </div>
-                ))}
+
+                      <div>
+
+                        <p className="text-sm font-medium">
+                          {
+                            dmg.description
+                          }
+                        </p>
+
+                        <p className="text-xs text-gray-400">
+                          {formatCurrency(
+                            dmg.repair_cost
+                          )}
+                        </p>
+
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeDamage(
+                            idx
+                          )
+                        }
+                        className="text-xs text-red-500"
+                      >
+                        Hapus
+                      </button>
+
+                    </div>
+                  )
+                )}
+
               </div>
+
             </div>
 
             <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
 
               <button
                 type="button"
-                onClick={closeEditModal}
+                onClick={
+                  closeEditModal
+                }
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm"
               >
                 Batal
@@ -664,6 +938,7 @@ export default function RentalsList({ type = "mobil" }) {
                   ? "Menyimpan..."
                   : "Simpan"}
               </button>
+
             </div>
 
           </form>
