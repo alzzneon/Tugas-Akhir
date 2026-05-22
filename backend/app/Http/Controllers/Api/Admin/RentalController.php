@@ -354,230 +354,160 @@ class RentalController extends ResourceController
         return $this->success($this->transformRental($rental), 'Rental mulai berjalan.');
     }
 
-    public function complete(Request $request, int $id)
+    public function complete(Request $request, Rental $rental)
     {
-        $validated = $request->validate([
-            'actual_return_at' => ['nullable', 'date'],
+        if (
+            !in_array($rental->status, [
+                'ongoing',
+                'overdue'
+            ])
+        ) {
+
+            return response()->json([
+                'message' => 'Rental belum bisa diselesaikan.'
+            ], 422);
+        }
+
+        $request->validate([
+            'actual_return_at' => [
+                'nullable',
+                'date'
+            ]
         ]);
 
-        $rental = Rental::query()
-            ->with([
-                'vehicle',
-                'lateFines',
-            ])
-            ->findOrFail($id);
+        $rental->update([
+            'status' => 'returned',
 
-        if (!in_array($rental->status, [
-            'ongoing',
-            'overdue',
-        ], true)) {
+            'actual_return_at' =>
+                $request->actual_return_at
+                ?? now(),
+        ]);
 
-            return $this->error(
-                'Rental tidak bisa diselesaikan.',
-                422
-            );
-        }
-
-        $actualReturn = isset($validated['actual_return_at'])
-            ? Carbon::parse($validated['actual_return_at'])
-            : now();
-
-        DB::transaction(function () use (
-            $rental,
-            $actualReturn
-        ) {
-
-            $plannedReturn = Carbon::parse(
-                $rental->actual_pickup_at ?? $rental->start_date
-            )->addDays($rental->total_date);
-
-            $lateMinutesTotal = 0;
-            $lateHours = 0;
-            $lateMinutes = 0;
-            $totalFine = 0;
-
-            if ($actualReturn->greaterThan($plannedReturn)) {
-
-                $lateMinutesTotal = $plannedReturn
-                    ->diffInMinutes($actualReturn);
-
-                $lateHours = floor($lateMinutesTotal / 60);
-
-                $lateMinutes = $lateMinutesTotal % 60;
-
-                $lateDays = ceil($lateMinutesTotal / 1440);
-
-                $totalFine = $lateDays * (
-                    (float) $rental->vehicle->daily_rate * 0.1
-                );
-
-                $rental->lateFines()->create([
-                    'total_fine' => $totalFine,
-                    'status' => 'unpaid',
-                    'calculation_type' => 'automatic',
-                    'late_hours' => $lateHours,
-                    'late_minutes' => $lateMinutes,
-                ]);
-            }
-
-            $rental->update([
-                'status' => $totalFine > 0
-                    ? 'waiting_payment'
-                    : 'completed',
-
-                'actual_return_at' => $actualReturn,
-
-                'returned_at' => now(),
-
-                'total_extra_cost' => $totalFine,
-            ]);
-        });
-
-        return $this->success(
-            $this->transformRental(
-                $rental->fresh([
-                    'lateFines',
-                    'vehicle',
-                ])
-            ),
-            'Rental selesai.'
-        );
+        return response()->json([
+            'message' =>
+                'Kendaraan berhasil dikembalikan.'
+        ]);
     }
 
-    public function updateStatusPayment(Request $request, int $id)
+    public function updateStatusPayment(Request $request, Rental $rental)
     {
-    $validated = $request->validate([
-        'status' => ['required', 'string', 'max:50'],
-        'payment_status' => ['required', 'string', 'max:50'],
-        'payment_type' => ['nullable', 'string', 'max:20'],
-        'payment_method' => ['nullable', 'string', 'max:50'],
-        'amount' => ['nullable', 'numeric', 'min:0'],
-        'notes' => ['nullable', 'string'],
-    ]);
+        $validated = $request->validate([
+            'status' => ['nullable', 'string'],
+            'payment_status' => ['nullable', 'string'],
+            'payment_method' => ['nullable', 'string'],
+            'payment_type' => ['nullable', 'string'],
+            'amount' => ['nullable', 'numeric'],
+            'notes' => ['nullable', 'string'],
+        ]);
 
-    $rental = Rental::query()->with([
-        'user:id,full_name,email,phone_number,address',
-        'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
-        'vehicle.type:id,code,name',
-    ])->findOrFail($id);
+        $current = $rental->status;
+        $next = $validated['status'] ?? $current;
 
-    $oldStatus = strtolower((string) $rental->status);
-    $oldPaymentStatus = strtolower((string) $rental->payment_status);
+        $allowedTransitions = [
 
-    $requestedStatus = strtolower((string) $validated['status']);
-    $requestedPaymentStatus = strtolower((string) $validated['payment_status']);
+            'pending' => [
+                'approved',
+                'rejected',
+            ],
 
-    if (
-        !$this->canTransitionStatus(
-            $rental->status,
-            $requestedStatus
-        )
-    ) {
-        return $this->error(
-            'Perubahan status tidak valid.',
-            422
-        );
-    }
+            'approved' => [
+                'paid',
+                'cancelled',
+            ],
 
-    DB::transaction(function () use (
-        $validated,
-        $rental,
-        $requestedStatus,
-        $requestedPaymentStatus
-    ) {
+            'paid' => [
+                'ongoing',
+            ],
 
-        $amount = (float) ($validated['amount'] ?? 0);
+            'ongoing' => [
+                'overdue',
+                'returned',
+            ],
 
-        if ($amount > 0) {
+            'overdue' => [
+                'returned',
+            ],
 
-            Payment::create([
-                'rental_id' => $rental->id,
-                'amount' => $amount,
-                'payment_method' => $validated['payment_method'] ?? 'transfer',
-                'payment_status' => 'paid',
-                'payment_type' => $validated['payment_type'] ?? 'full',
-                'provider' => 'manual',
-                'provider_reference' => 'MANUAL-' . now()->format('YmdHis') . '-' . $rental->id,
-                'notes' => $validated['notes'] ?? null,
-                'paid_at' => now(),
-            ]);
-        }
+            'returned' => [
+                'inspection',
+            ],
 
-        $finalPaymentStatus = in_array(
-            $requestedPaymentStatus,
-            ['unpaid', 'paid', 'failed', 'expired'],
-            true
-        )
-            ? $requestedPaymentStatus
-            : 'unpaid';
+            'inspection' => [
+                'waiting_payment',
+                'completed',
+            ],
 
-        $finalStatus = $requestedStatus;
+            'waiting_payment' => [
+                'repair_process',
+                'completed',
+            ],
 
-        if (
-            $finalPaymentStatus === 'paid' &&
-            in_array($requestedStatus, ['approved', 'pending'], true)
-        ) {
-            $finalStatus = 'paid';
-        }
-
-        $payload = [
-            'status' => $finalStatus,
-            'payment_status' => $finalPaymentStatus,
+            'repair_process' => [
+                'completed',
+            ],
         ];
 
         if (
-            $finalStatus === 'approved' &&
-            empty($rental->approved_at)
+            $next !== $current &&
+            (
+                !isset($allowedTransitions[$current]) ||
+                !in_array($next, $allowedTransitions[$current])
+            )
         ) {
 
-            $payload['approved_at'] = now();
-            $payload['approved_by'] = optional(auth()->user())->id;
-            $payload['rejected_at'] = null;
-            $payload['rejected_by'] = null;
-            $payload['rejection_reason'] = null;
-            $payload['payment_deadline'] =
-                $rental->payment_deadline ?: now()->addHours(2);
+            return response()->json([
+                'message' => 'Perubahan status tidak valid.'
+            ], 422);
         }
 
-        if ($finalStatus === 'rejected') {
-
-            $payload['rejected_at'] = now();
-            $payload['rejected_by'] = optional(auth()->user())->id;
-            $payload['rejection_reason'] =
-                $validated['notes']
-                ?? 'Pesanan ditolak oleh admin.';
-
-            $payload['payment_deadline'] = null;
-        }
-
-        if (
-            $finalStatus === 'ongoing' &&
-            empty($rental->actual_pickup_at)
+        DB::transaction(function () use (
+            $validated,
+            $rental,
+            $next
         ) {
 
-            $payload['actual_pickup_at'] = now();
-        }
+            $rental->update([
+                'status' => $next,
+                'payment_status' =>
+                    $validated['payment_status']
+                    ?? $rental->payment_status,
 
-        if (
-            $finalStatus === 'completed' &&
-            empty($rental->actual_return_at)
-        ) {
+                'notes' =>
+                    $validated['notes']
+                    ?? $rental->notes,
+            ]);
 
-            $payload['actual_return_at'] = now();
-        }
+            // simpan payment kalau ada nominal
+            if (
+                !empty($validated['amount']) &&
+                $validated['amount'] > 0
+            ) {
 
-        $rental->update($payload);
+                $rental->payments()->create([
+                    'amount' =>
+                        $validated['amount'],
+
+                    'payment_method' =>
+                        $validated['payment_method']
+                        ?? 'cash',
+
+                    'payment_type' =>
+                        $validated['payment_type']
+                        ?? 'full',
+
+                    'payment_status' =>
+                        $validated['payment_status']
+                        ?? 'paid',
+
+                    'paid_at' => now(),
+                ]);
+            }
         });
 
-        return $this->success(
-            $rental->fresh([
-                'user',
-                'vehicle',
-                'payments',
-            ]),
-            'Status rental berhasil diperbarui.'
-        );
-        }
+        return response()->json([
+            'message' => 'Rental berhasil diperbarui.'
+        ]);
+    }
 
     private function sendApprovalWhatsapp(Rental $rental): void
     {
@@ -877,6 +807,125 @@ class RentalController extends ResourceController
         ];
     }
 
+
+    public function inspect(Request $request, Rental $rental)
+    {
+        if (
+            !in_array($rental->status, [
+                'returned',
+                'inspection',
+            ])
+        ) {
+
+            return response()->json([
+                'message' =>
+                    'Rental belum masuk inspeksi.'
+            ], 422);
+        }
+
+        $validated = $request->validate([
+
+            'has_late_fine' => [
+                'required',
+                'boolean',
+            ],
+
+            'late_fine_amount' => [
+                'nullable',
+                'numeric',
+            ],
+
+            'has_damage' => [
+                'required',
+                'boolean',
+            ],
+
+            'damages' => [
+                'nullable',
+                'array',
+            ],
+
+            'damages.*.description' => [
+                'required',
+                'string',
+            ],
+
+            'damages.*.repair_cost' => [
+                'required',
+                'numeric',
+            ],
+        ]);
+
+        DB::transaction(function () use (
+            $validated,
+            $rental
+        ) {
+
+            // masuk inspection
+            $rental->update([
+                'status' => 'inspection',
+            ]);
+
+            $hasFine =
+                $validated['has_late_fine'];
+
+            $hasDamage =
+                $validated['has_damage'];
+
+            // save fine
+            if ($hasFine) {
+
+                $rental->update([
+                    'late_fine_amount' =>
+                        $validated['late_fine_amount']
+                ]);
+            }
+
+            // save damage
+            if (
+                $hasDamage &&
+                !empty($validated['damages'])
+            ) {
+
+                foreach (
+                    $validated['damages']
+                    as $damage
+                ) {
+
+                    $rental->damages()->create([
+                        'description' =>
+                            $damage['description'],
+
+                        'repair_cost' =>
+                            $damage['repair_cost'],
+                    ]);
+                }
+            }
+
+            // next flow
+            if ($hasFine || $hasDamage) {
+
+                $rental->update([
+                    'status' =>
+                        'waiting_payment'
+                ]);
+            }
+
+            else {
+
+                $rental->update([
+                    'status' =>
+                        'completed'
+                ]);
+            }
+        });
+
+        return response()->json([
+            'message' =>
+                'Inspeksi berhasil.'
+        ]);
+    }
+
     public function inspectVehicle(Request $request, int $id)
     {
         $validated = $request->validate([
@@ -1092,15 +1141,32 @@ class RentalController extends ResourceController
             'cancelled',
         ],
 
-        'ongoing' => [
-            'completed',
+       'ongoing' => [
+            'returned',
             'overdue',
         ],
 
         'overdue' => [
+            'returned',
+        ],
+
+        'returned' => [
+            'inspection',
+        ],
+
+        'inspection' => [
+            'waiting_payment',
             'completed',
         ],
 
+        'waiting_payment' => [
+            'repair_process',
+            'completed',
+        ],
+
+        'repair_process' => [
+            'completed',
+        ],
         'completed' => [],
 
         'rejected' => [],

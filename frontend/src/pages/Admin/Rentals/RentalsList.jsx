@@ -212,9 +212,8 @@ export default function RentalsList() {
   }
 
   function addDamageItem() {
-    if (!editForm.damage_name || !editForm.damage_cost) {
+    if (!editForm.damage_name || !editForm.damage_cost)
       return;
-    }
 
     setEditForm((prev) => ({
       ...prev,
@@ -224,13 +223,11 @@ export default function RentalsList() {
 
         {
           description: prev.damage_name,
-
           repair_cost: Number(prev.damage_cost),
         },
       ],
 
       damage_name: "",
-
       damage_cost: "",
     }));
   }
@@ -308,36 +305,6 @@ export default function RentalsList() {
     );
   }
 
-  async function inspectVehicle() {
-    const hasDamage =
-      editForm.damages.length > 0;
-
-    const hasLateFine =
-      editForm.has_late_fine;
-
-    if (!hasDamage && !hasLateFine) {
-      return;
-    }
-
-    await api.post(
-      `/admin/rentals/${selectedRow.id}/inspect`,
-      {
-        has_late_fine: hasLateFine,
-
-        late_fine_amount:
-          editForm.late_fine_amount
-            ? Number(
-                editForm.late_fine_amount
-              )
-            : 0,
-
-        has_damage: hasDamage,
-
-        damages: editForm.damages,
-      }
-    );
-  }
-
   async function completeRental() {
     if (
       editForm.status !== "completed"
@@ -355,75 +322,186 @@ export default function RentalsList() {
     );
   }
 
+// ==========================================
+// FRONTEND
+// HANDLE SAVE EDIT
+// ==========================================
+
 async function handleSaveEdit(e) {
+
   e.preventDefault();
 
   try {
+
     setSavingEdit(true);
+
     setMsg("");
 
-    const currentStatus = selectedRow.status;
-    const nextStatus = editForm.status;
+    const currentStatus =
+      selectedRow.status;
 
+    const nextStatus =
+      editForm.status;
+
+    // APPROVE
     if (
       currentStatus === "pending" &&
       nextStatus === "approved"
     ) {
+
       await api.patch(
         `/admin/rentals/${selectedRow.id}/approve`
       );
     }
 
-    else if (nextStatus === "rejected") {
+    // REJECT
+    else if (
+      nextStatus === "rejected"
+    ) {
+
       await api.patch(
         `/admin/rentals/${selectedRow.id}/reject`,
         {
           reason:
             editForm.notes ||
-            "Ditolak oleh admin",
+            "Ditolak admin",
         }
       );
     }
 
+    // ONGOING
     else if (
       currentStatus === "paid" &&
       nextStatus === "ongoing"
     ) {
+
       await api.patch(
         `/admin/rentals/${selectedRow.id}/mark-ongoing`
       );
     }
 
+    // RETURNED
     else if (
-      ["ongoing", "overdue"].includes(
-        currentStatus
-      ) &&
-      nextStatus === "completed"
+      ["ongoing", "overdue"].includes(currentStatus) &&
+      nextStatus === "returned"
     ) {
+
       await api.patch(
         `/admin/rentals/${selectedRow.id}/complete`,
         {
           actual_return_at:
-            editForm.returned_at || null,
+            editForm.actual_return_at || null,
         }
       );
     }
 
-    else {
+    // INSPECTION
+    else if (
+      currentStatus === "returned" &&
+      (
+        nextStatus === "inspection" ||
+        nextStatus === "waiting_payment" ||
+        nextStatus === "completed"
+      )
+    ) {
+
+      const hasFine =
+        editForm.has_late_fine;
+
+      const hasDamage =
+        editForm.damages.length > 0;
+
+      await api.patch(
+        `/admin/rentals/${selectedRow.id}/inspect`,
+        {
+          has_late_fine:
+            hasFine,
+
+          late_fine_amount:
+            editForm.late_fine_amount
+              ? Number(
+                  editForm.late_fine_amount
+                )
+              : 0,
+
+          has_damage:
+            hasDamage,
+
+          damages:
+            editForm.damages,
+        }
+      );
+    }
+
+    // PAYMENT COMPLETED
+    else if (
+      currentStatus === "waiting_payment" &&
+      nextStatus === "repair_process"
+    ) {
+
       await api.patch(
         `/admin/rentals/${selectedRow.id}/update-status-payment`,
         {
-          status: editForm.status,
+          status:
+            "repair_process",
+
           payment_status:
-            editForm.payment_status,
-          payment_type:
-            editForm.payment_type,
+            "paid",
+
           payment_method:
             editForm.payment_method,
-          amount: editForm.amount
-            ? Number(editForm.amount)
-            : 0,
-          notes: editForm.notes,
+
+          payment_type:
+            editForm.payment_type,
+
+          amount:
+            editForm.amount
+              ? Number(editForm.amount)
+              : 0,
+        }
+      );
+    }
+
+    // FINAL COMPLETED
+    else if (
+      currentStatus === "repair_process" &&
+      nextStatus === "completed"
+    ) {
+
+      await api.patch(
+        `/admin/rentals/${selectedRow.id}/update-status-payment`,
+        {
+          status:
+            "completed"
+        }
+      );
+    }
+
+    // GENERAL UPDATE
+    else {
+
+      await api.patch(
+        `/admin/rentals/${selectedRow.id}/update-status-payment`,
+        {
+          status:
+            editForm.status,
+
+          payment_status:
+            editForm.payment_status,
+
+          payment_method:
+            editForm.payment_method,
+
+          payment_type:
+            editForm.payment_type,
+
+          amount:
+            editForm.amount
+              ? Number(editForm.amount)
+              : 0,
+
+          notes:
+            editForm.notes,
         }
       );
     }
@@ -431,14 +509,18 @@ async function handleSaveEdit(e) {
     await fetchRentals();
 
     closeEditModal();
+
   } catch (err) {
+
     console.log(err);
 
     setMsg(
       err.response?.data?.message ||
-        "Gagal update rental."
+      "Gagal update rental."
     );
+
   } finally {
+
     setSavingEdit(false);
   }
 }
@@ -630,44 +712,58 @@ async function handleSaveEdit(e) {
                   Status Rental
                 </FieldLabel>
 
-                <select
-                  name="status"
-                  value={editForm.status}
-                  onChange={
-                    handleEditChange
-                  }
-                  className={inputCls(false)}
-                >
+              <select
+                name="status"
+                value={editForm.status}
+                onChange={handleEditChange}
+                className={inputCls(false)}
+              >
 
-                  <option value="pending">
-                    Pending
-                  </option>
+                <option value="pending">
+                  Pending
+                </option>
 
-                  <option value="approved">
-                    Approved
-                  </option>
+                <option value="approved">
+                  Approved
+                </option>
 
-                  <option value="paid">
-                    Paid
-                  </option>
+                <option value="paid">
+                  Paid
+                </option>
 
-                  <option value="ongoing">
-                    Ongoing
-                  </option>
+                <option value="ongoing">
+                  Ongoing
+                </option>
 
-                  <option value="completed">
-                    Completed
-                  </option>
+                <option value="overdue">
+                  Overdue
+                </option>
 
-                  <option value="overdue">
-                    Overdue
-                  </option>
+                <option value="returned">
+                  Returned
+                </option>
 
-                  <option value="cancelled">
-                    Cancelled
-                  </option>
+                <option value="inspection">
+                  Inspection
+                </option>
 
-                </select>
+                <option value="waiting_payment">
+                  Waiting Payment
+                </option>
+
+                <option value="repair_process">
+                  Repair Process
+                </option>
+
+                <option value="completed">
+                  Completed
+                </option>
+
+                <option value="rejected">
+                  Rejected
+                </option>
+
+              </select>               
               </div>
 
               <div>
