@@ -6,30 +6,50 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    protected $table = 'payments';
-
     protected $fillable = [
+
         'rental_id',
         'amount',
+
         'payment_method',
         'payment_status',
         'payment_type',
+
         'provider',
         'provider_reference',
+
+        'order_id',
+        'transaction_id',
+
+        'snap_token',
+        'snap_redirect_url',
+
+        'fraud_status',
+
+        'transaction_time',
+        'settlement_time',
+
+        'bank',
+        'va_number',
+
+        'bill_key',
+        'biller_code',
+
+        'currency',
+
+        'raw_response',
+
         'expired_at',
-        'notes',
-        'updated_at',
         'paid_at',
+
+        'notes'
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
-        'expired_at' => 'datetime',
+        'raw_response' => 'array',
         'paid_at' => 'datetime',
+        'expired_at' => 'datetime',
+        'transaction_time' => 'datetime',
+        'settlement_time' => 'datetime',
     ];
-
-    public function rental()
-    {
-        return $this->belongsTo(Rental::class, 'rental_id');
-    }
 }

@@ -15,13 +15,14 @@ use App\Http\Controllers\Api\Admin\RentalStatusController;
 use App\Http\Controllers\Api\Admin\PaymentStatusController;
 use App\Http\Controllers\Api\Admin\VehicleController;
 use App\Http\Controllers\Api\Admin\RentalController as AdminRentalController;
+use App\Http\Controllers\Api\PaymentController;
 
 use App\Http\Controllers\Api\NotificationController;
 use App\Services\FonnteService;
+use App\Http\Controllers\Api\MidtransController;
 
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RentalController;
-use App\Http\Controllers\Api\PaymentController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -83,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/payments', [PaymentController::class, 'index']);
     Route::post('/payments', [PaymentController::class, 'store']);
+    Route::post('/midtrans/create-transaction', [MidtransController::class, 'createTransaction']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
@@ -91,7 +93,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
 });
 
-Route::prefix('public')->group(function () {
-    Route::get('/vehicles', [PublicVehicleController::class, 'index']);
-    Route::post('/rentals', [PublicRentalController::class, 'store']);
-});
+    Route::post('/midtrans/notification', [MidtransController::class, 'notificationHandler']);
+
+    Route::prefix('public')->group(function () {
+        Route::get('/vehicles', [PublicVehicleController::class, 'index']);
+        Route::post('/rentals', [PublicRentalController::class, 'store']);
+    });

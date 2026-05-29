@@ -103,23 +103,37 @@ class RentalController extends ResourceController
         return $this->created($this->transformRental($rental));
     }
 
-    private function hasConflict(int $vehicleId, Carbon $start, Carbon $end): bool
-    {
-        return Rental::query()
-            ->where('vehicle_id', $vehicleId)
-            ->whereIn('status', [
-                'pending',
-                'approved',
-                'paid',
-                'ongoing',
-                'overdue',
-            ])
-            ->where(function ($q) use ($start, $end) {
-                $q->where('start_date', '<=', $end)
-                  ->where('end_date', '>=', $start);
-            })
-            ->exists();
-    }
+private function hasConflict(
+    int $vehicleId,
+    Carbon $start,
+    Carbon $end
+): bool {
+
+    return Rental::query()
+
+        ->where('vehicle_id', $vehicleId)
+
+        ->whereIn('status', [
+
+            'pending',
+            'approved',
+            'ongoing',
+            'overdue',
+            'inspection',
+            'waiting_payment',
+            'repair_process',
+
+        ])
+
+        ->where(function ($q) use ($start, $end) {
+
+            $q->where('start_date', '<=', $end)
+              ->where('end_date', '>=', $start);
+
+        })
+
+        ->exists();
+}
 
     private function generateBookingCode(): string
     {

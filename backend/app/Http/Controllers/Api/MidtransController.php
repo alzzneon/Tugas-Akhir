@@ -3,39 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Payment;
-use App\Models\Rental;
-
 use Illuminate\Http\Request;
 
 use Midtrans\Config;
 use Midtrans\Snap;
 
-class PaymentController extends Controller
+use App\Models\Rental;
+use App\Models\Payment;
+
+class MidtransController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | GET PAYMENTS
-    |--------------------------------------------------------------------------
-    */
-
-    public function index()
-    {
-        $payments = Payment::latest()->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $payments,
-        ]);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE MIDTRANS PAYMENT
-    |--------------------------------------------------------------------------
-    */
-
-    public function store(Request $request)
+    public function createTransaction(Request $request)
     {
         try {
 
@@ -51,22 +29,22 @@ class PaymentController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | MIDTRANS CONFIG
-            |--------------------------------------------------------------------------
-            */
-
-            Config::$serverKey = config('midtrans.server_key');
-            Config::$isProduction = config('midtrans.is_production');
-            Config::$isSanitized = config('midtrans.is_sanitized');
-            Config::$is3ds = config('midtrans.is_3ds');
-
-            /*
-            |--------------------------------------------------------------------------
-            | RENTAL
+            | GET RENTAL
             |--------------------------------------------------------------------------
             */
 
             $rental = Rental::with('user')->findOrFail($request->rental_id);
+
+            /*
+            |--------------------------------------------------------------------------
+            | MIDTRANS CONFIG
+            |--------------------------------------------------------------------------
+            */
+
+            Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+            Config::$isProduction = false;
+            Config::$isSanitized = true;
+            Config::$is3ds = true;
 
             /*
             |--------------------------------------------------------------------------
@@ -76,7 +54,21 @@ class PaymentController extends Controller
 
             $orderId = 'RENT-' . time() . '-' . $rental->id;
 
-            $grossAmount = (int) $rental->total_price;
+            /*
+            |--------------------------------------------------------------------------
+            | CREATE PAYMENT
+            |--------------------------------------------------------------------------
+            */
+
+            $payment = Payment::create([
+                'rental_id' => $rental->id,
+                'amount' => $rental->total_price,
+                'payment_method' => 'midtrans',
+                'payment_status' => 'pending',
+                'payment_type' => 'full',
+                'provider' => 'midtrans',
+                'order_id' => $orderId,
+            ]);
 
             /*
             |--------------------------------------------------------------------------
@@ -85,21 +77,21 @@ class PaymentController extends Controller
             */
 
             $params = [
-
                 'transaction_details' => [
                     'order_id' => $orderId,
-                    'gross_amount' => $grossAmount,
+                    'gross_amount' => (int) $rental->total_price,
                 ],
 
                 'customer_details' => [
-                    'first_name' => $rental->user->name ?? 'Customer',
-                    'email' => $rental->user->email ?? 'customer@mail.com',
+                    'first_name' => $rental->customer_name,
+                    'email' => $rental->customer_email,
+                    'phone' => $rental->customer_phone,
                 ],
             ];
 
             /*
             |--------------------------------------------------------------------------
-            | SNAP TOKEN
+            | GET SNAP TOKEN
             |--------------------------------------------------------------------------
             */
 
@@ -107,29 +99,12 @@ class PaymentController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | SAVE PAYMENT
+            | SAVE TOKEN
             |--------------------------------------------------------------------------
             */
 
-            $payment = Payment::create([
-
-                'rental_id' => $rental->id,
-
-                'amount' => $grossAmount,
-
-                'payment_method' => 'midtrans',
-
-                'payment_status' => 'pending',
-
-                'payment_type' => 'full',
-
-                'provider' => 'midtrans',
-
-                'order_id' => $orderId,
-
+            $payment->update([
                 'snap_token' => $snapToken,
-
-                'currency' => 'IDR',
             ]);
 
             /*
@@ -140,13 +115,10 @@ class PaymentController extends Controller
 
             return response()->json([
                 'success' => true,
-
-                'message' => 'Payment created successfully',
-
+                'message' => 'Berhasil membuat transaksi',
                 'data' => [
                     'snap_token' => $snapToken,
                     'order_id' => $orderId,
-                    'payment_id' => $payment->id,
                 ]
             ]);
 
@@ -158,5 +130,19 @@ class PaymentController extends Controller
             ], 500);
 
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MIDTRANS CALLBACK
+    |--------------------------------------------------------------------------
+    */
+
+    public function notificationHandler(Request $request)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification received',
+        ]);
     }
 }
