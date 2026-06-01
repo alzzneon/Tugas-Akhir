@@ -36,12 +36,6 @@ export default function PembayaranPesanan() {
 
   const [paying, setPaying] = useState(false);
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOAD RENTALS
-  |--------------------------------------------------------------------------
-  */
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -75,21 +69,9 @@ export default function PembayaranPesanan() {
     }
   }, [token]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | CURRENT RENTAL
-  |--------------------------------------------------------------------------
-  */
-
   const item = useMemo(() => {
     return rows.find((row) => String(row.id) === String(id)) || null;
   }, [rows, id]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | HANDLE MIDTRANS PAYMENT
-  |--------------------------------------------------------------------------
-  */
 
   const handlePayment = async () => {
     try {
@@ -121,20 +103,46 @@ export default function PembayaranPesanan() {
         throw new Error("Snap token tidak ditemukan");
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | OPEN MIDTRANS POPUP
-      |--------------------------------------------------------------------------
-      */
-
       window.snap.pay(snapToken, {
-        onSuccess: function (result) {
-          console.log("SUCCESS", result);
+      onSuccess: async function (result) {
 
-          alert("Pembayaran berhasil");
+        console.log("SUCCESS", result);
 
-          navigate("/pesanan-saya");
-        },
+        try {
+
+          const response = await fetch(
+            "http://localhost:8000/api/midtrans/check-status",
+            {
+              method: "POST",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                order_id: result.order_id,
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          console.log("CHECK STATUS RESPONSE", data);
+
+          if (!response.ok) {
+            throw new Error(data?.message || "Gagal sinkronisasi status");
+          }
+
+        } catch (err) {
+
+          console.error("SYNC ERROR", err);
+
+        }
+
+        alert("Pembayaran berhasil");
+
+        navigate("/pesanan-saya");
+      },
 
         onPending: function (result) {
           console.log("PENDING", result);
@@ -163,11 +171,6 @@ export default function PembayaranPesanan() {
     }
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOADING
-  |--------------------------------------------------------------------------
-  */
 
   if (loading) {
     return (
@@ -185,11 +188,6 @@ export default function PembayaranPesanan() {
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | ERROR
-  |--------------------------------------------------------------------------
-  */
 
   if (msg) {
     return (
@@ -207,12 +205,6 @@ export default function PembayaranPesanan() {
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | NOT FOUND
-  |--------------------------------------------------------------------------
-  */
-
   if (!item) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
@@ -229,21 +221,9 @@ export default function PembayaranPesanan() {
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | PAYMENT ELIGIBILITY
-  |--------------------------------------------------------------------------
-  */
-
   const canPay =
     String(item.status).toLowerCase() === "approved" &&
     String(item.payment_status).toLowerCase() === "unpaid";
-
-  /*
-  |--------------------------------------------------------------------------
-  | RENDER
-  |--------------------------------------------------------------------------
-  */
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">

@@ -325,80 +325,50 @@ class RentalController extends ResourceController
 
     public function markOngoing(int $id)
     {
-        $rental = Rental::query()->findOrFail($id);
+        $rental = Rental::findOrFail($id);
 
-    if (
-        $rental->status !== 'approved' ||
+        if ($rental->status !== 'approved') {
+            return $this->error(
+                'Rental harus berstatus approved.',
+                422
+            );
+        }
 
-        $rental->payment_status !== 'paid'
-    ) {
-        return $this->error(
-            'Rental belum bisa berjalan karena pembayaran belum lunas.',
-            422
-        );
-    }
+        $hasPaid = Payment::query()
+            ->where('rental_id', $rental->id)
+            ->whereIn('payment_status', [
+                'paid',        // pembayaran manual
+                'settlement',  // midtrans
+                'capture',     // midtrans
+            ])
+            ->exists();
+
+        if (!$hasPaid) {
+            return $this->error(
+                'Rental belum dibayar.',
+                422
+            );
+        }
 
         $rental->update([
             'status' => 'ongoing',
-            'actual_pickup_at' => $rental->actual_pickup_at ?: now(),
+            'actual_pickup_at' => $rental->actual_pickup_at ?? now(),
         ]);
 
-        $rental->load([
-            'user:id,full_name,email,phone_number,address',
-            'vehicle:id,name,plate_number,daily_rate,vehicle_type_id',
-            'vehicle.type:id,code,name',
-            'approvedBy:id,full_name',
-            'rejectedBy:id,full_name',
-            'payments:id,rental_id,amount,payment_method,payment_status,payment_type,paid_at',
-        ]);
-
-        return $this->success($this->transformRental($rental), 'Rental mulai berjalan.');
+        return $this->success(
+            $this->transformRental(
+                $rental->fresh([
+                    'user',
+                    'vehicle.type',
+                    'approvedBy',
+                    'rejectedBy',
+                    'payments',
+                ])
+            ),
+            'Rental mulai berjalan.'
+        );
     }
 
-// public function complete(Request $request, Rental $rental) 
-// {
-
-//     if (
-
-//         !in_array(
-//             $rental->status,
-//             ['ongoing', 'overdue']
-//         )
-
-//     ) {
-
-//         return response()->json([
-//             'message' =>
-//                 'Rental belum bisa diselesaikan.'
-//         ], 422);
-//     }
-
-//     $request->validate([
-
-//         'actual_return_at' => [
-//             'nullable',
-//             'date'
-//         ]
-
-//     ]);
-
-//     $rental->update([
-
-//         'status' => 'returned',
-
-//         'actual_return_at' =>
-//             $request->actual_return_at
-//             ?? now(),
-
-//     ]);
-
-//     return response()->json([
-
-//         'message' =>
-//             'Kendaraan berhasil dikembalikan.'
-
-//     ]);
-// }
 
 public function markReturned(Request $request, Rental $rental)
 {
@@ -821,100 +791,7 @@ if (
     }
 
 
-    // public function inspectVehicle(Request $request, int $id)
-    // {
-    //     $validated = $request->validate([
-    //         'has_late_fine' => 'required|boolean',
-    //         'late_fine_amount' => 'nullable|numeric|min:0',
-
-    //         'has_damage' => 'required|boolean',
-
-    //         'damages' => 'nullable|array',
-    //         'damages.*.description' => 'required|string|max:1000',
-    //         'damages.*.repair_cost' => 'required|numeric|min:0',
-    //     ]);
-
-    //     $rental = Rental::findOrFail($id);
-
-    //     if (!in_array($rental->status, [
-    //         'ongoing',
-    //         'overdue',
-    //     ], true)) {
-
-    //         return $this->error(
-    //             'Rental belum bisa diinspeksi.',
-    //             422
-    //         );
-    //     }
-
-    //     DB::transaction(function () use (
-    //         $validated,
-    //         $rental
-    //     ) {
-
-    //         $totalExtra = 0;
-
-    //         if ($validated['has_late_fine']) {
-
-    //             $fineAmount = (float)
-    //                 ($validated['late_fine_amount'] ?? 0);
-
-    //             $rental->lateFines()->create([
-    //                 'total_fine' => $fineAmount,
-    //                 'status' => 'unpaid',
-    //             ]);
-
-    //             $totalExtra += $fineAmount;
-    //         }
-
-    //         if ($validated['has_damage']) {
-
-    //             foreach (($validated['damages'] ?? []) as $damage) {
-
-    //                 $repairCost = (float)
-    //                     $damage['repair_cost'];
-
-    //                 $rental->damages()->create([
-    //                     'vehicle_id' => $rental->vehicle_id,
-    //                     'description' => $damage['description'],
-    //                     'repair_cost' => $repairCost,
-    //                     'status' => 'pending',
-    //                 ]);
-
-    //                 $totalExtra += $repairCost;
-    //             }
-    //         }
-
-    //     $newStatus = $totalExtra > 0
-    //         ? 'waiting_payment'
-    //         : 'completed';
-
-    //     $rental->update([
-    //         'status' => $newStatus,
-    //         'inspected_at' => now(),
-    //         'has_late_fine' => $validated['has_late_fine'],
-    //         'has_damage' => $validated['has_damage'],
-    //         'total_extra_cost' => $totalExtra,
-    //     ]);
-    // });
-
-    //     return $this->success(
-    //         $rental->fresh([
-    //             'lateFines',
-    //             'damages',
-    //         ]),
-    //         'Inspeksi kendaraan berhasil.'
-    //     );
-    
-
-    //     return $this->success(
-    //         $rental->fresh([
-    //             'lateFines',
-    //             'damages',
-    //         ]),
-    //         'Inspeksi kendaraan berhasil.'
-    //     );
-    // }
+   
 
 public function inspectVehicle(Request $request, int $id)
 {
@@ -1008,97 +885,6 @@ public function inspectVehicle(Request $request, int $id)
     );
 }
 
-// public function inspectVehicle(Request $request, int $id)
-// {
-//     $validated = $request->validate([
-//         'has_late_fine' => ['required', 'boolean'],
-//         'late_fine_amount' => ['nullable', 'numeric', 'min:0'],
-
-//         'has_damage' => ['required', 'boolean'],
-
-//         'damages' => ['nullable', 'array'],
-//         'damages.*.description' => ['required', 'string', 'max:1000'],
-//         'damages.*.repair_cost' => ['required', 'numeric', 'min:0'],
-//     ]);
-
-//     $rental = Rental::findOrFail($id);
-
-//     if (!in_array($rental->status, [
-//         'returned',
-//     ], true)) {
-
-//         return $this->error(
-//             'Rental belum bisa diinspeksi.',
-//             422
-//         );
-//     }
-
-//     DB::transaction(function () use (
-//         $validated,
-//         $rental
-//     ) {
-
-//         $rental->update([
-//             'status' => 'inspection',
-//         ]);
-
-//         $totalExtra = 0;
-
-//         // DENDA TELAT
-//         if ($validated['has_late_fine']) {
-
-//             $fineAmount = (float)
-//                 ($validated['late_fine_amount'] ?? 0);
-
-//             $rental->lateFines()->create([
-//                 'total_fine' => $fineAmount,
-//                 'status' => 'unpaid',
-//             ]);
-
-//             $totalExtra += $fineAmount;
-//         }
-
-//         // KERUSAKAN
-//         if ($validated['has_damage']) {
-
-//             foreach (($validated['damages'] ?? []) as $damage) {
-
-//                 $repairCost = (float)
-//                     $damage['repair_cost'];
-
-//                 $rental->damages()->create([
-//                     'vehicle_id' => $rental->vehicle_id,
-//                     'description' => $damage['description'],
-//                     'repair_cost' => $repairCost,
-//                     'status' => 'pending',
-//                 ]);
-
-//                 $totalExtra += $repairCost;
-//             }
-//         }
-
-//         // STATUS AKHIR
-//         $newStatus = $totalExtra > 0
-//             ? 'waiting_payment'
-//             : 'completed';
-
-//         $rental->update([
-//             'status' => $newStatus,
-//             'inspected_at' => now(),
-//             'has_late_fine' => $validated['has_late_fine'],
-//             'has_damage' => $validated['has_damage'],
-//             'total_extra_cost' => $totalExtra,
-//         ]);
-//     });
-
-//     return $this->success(
-//         $rental->fresh([
-//             'lateFines',
-//             'damages',
-//         ]),
-//         'Inspeksi kendaraan berhasil.'
-//     );
-// }
 
     public function pay(Request $request, int $id)
     {

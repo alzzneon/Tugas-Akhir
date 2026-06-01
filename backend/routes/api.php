@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\PublicVehicleController;
 use App\Http\Controllers\Api\PublicRentalController;
+use App\Http\Controllers\Admin\DashboardController;
 
 use App\Http\Controllers\Api\Admin\VehicleTypeController;
 use App\Http\Controllers\Api\Admin\VehicleBrandController;
@@ -61,6 +62,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
             ->only(['index', 'store', 'update', 'destroy']);
     });
 
+    Route::get('/dashboard-stats', [DashboardController::class, 'getStats']);
+
     Route::get('/users-for-rental', [AdminRentalController::class, 'usersForRental']);
 
     Route::get('/rentals', [AdminRentalController::class, 'index']);
@@ -85,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/payments', [PaymentController::class, 'index']);
     Route::post('/payments', [PaymentController::class, 'store']);
     Route::post('/midtrans/create-transaction', [MidtransController::class, 'createTransaction']);
+    Route::post('/midtrans/check-status',[MidtransController::class, 'checkStatus']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);

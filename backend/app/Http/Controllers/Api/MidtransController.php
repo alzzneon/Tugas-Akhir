@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 use Midtrans\Config;
 use Midtrans\Snap;
-
+use Midtrans\Transaction;
 use App\Models\Rental;
 use App\Models\Payment;
 
@@ -132,11 +132,55 @@ class MidtransController extends Controller
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MIDTRANS CALLBACK
-    |--------------------------------------------------------------------------
-    */
+    public function checkStatus(Request $request)
+    {
+        $request->validate([
+            'order_id' => 'required'
+        ]);
+
+        Config::$serverKey = config('midtrans.server_key');
+        Config::$isProduction = config('midtrans.is_production');
+
+        $status = Transaction::status(
+            $request->order_id
+        );
+
+        $payment = Payment::where(
+            'order_id',
+            $request->order_id
+        )->first();
+
+        if (!$payment) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment tidak ditemukan'
+            ], 404);
+
+        }
+
+        if (
+            $status->transaction_status === 'settlement' ||
+            $status->transaction_status === 'capture'
+        ) {
+
+            $payment->update([
+                'payment_status' => $status->transaction_status,
+                'transaction_id' => $status->transaction_id ?? null,
+                'paid_at' => now(),
+                'raw_response' => (array) $status,
+            ]);
+
+            $payment->rental()->update([
+                'payment_status' => 'paid'
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'transaction_status' => $status->transaction_status
+        ]);
+    }
 
     public function notificationHandler(Request $request)
     {

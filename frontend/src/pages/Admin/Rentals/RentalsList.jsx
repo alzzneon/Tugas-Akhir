@@ -103,6 +103,23 @@ function formatCurrency(v) {
   return `Rp ${Number(v || 0).toLocaleString("id-ID")}`;
 }
 
+// Fungsi pembantu untuk memformat tampilan Tanggal agar rapi di Modal Admin
+function formatDate(dateString) {
+  if (!dateString) return "-";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch (e) {
+    return dateString;
+  }
+}
+
 const inputCls = (err) =>
   `w-full rounded-lg border text-[13px] px-3 py-2 outline-none transition bg-white text-gray-800 ${
     err ? "border-red-300" : "border-gray-200"
@@ -115,6 +132,28 @@ function FieldLabel({ children }) {
     </label>
   );
 }
+
+// Kamus Translasi untuk Opsi Dropdown Select Status di Dalam Modal
+const RENTAL_STATUS_OPTIONS = {
+  pending: "Menunggu Persetujuan (Pending)",
+  approved: "Disetujui (Approved)",
+  paid: "Lunas (Paid)",
+  ongoing: "Sedang Berjalan (Ongoing)",
+  overdue: "Terlambat (Overdue)",
+  returned: "Dikembangkan (Returned)",
+  inspection: "Dalam Inspeksi (Inspection)",
+  waiting_payment: "Menunggu Pembayaran (Waiting Payment)",
+  repair_process: "Proses Perbaikan (Repair Process)",
+  completed: "Selesai (Completed)",
+  rejected: "Ditolak (Rejected)"
+};
+
+const PAYMENT_STATUS_OPTIONS = {
+  unpaid: "Belum Bayar (Unpaid)",
+  paid: "Sudah Bayar (Paid)",
+  failed: "Gagal (Failed)",
+  expired: "Kedaluwarsa (Expired)"
+};
 
 function SectionDivider({ label }) {
   return (
@@ -654,7 +693,7 @@ async function handleSaveEdit(e) {
 
               <div className="flex justify-between">
                 <span className="text-gray-400 text-sm">
-                  Booking Code
+                  Kode Booking
                 </span>
 
                 <span className="font-medium">
@@ -668,11 +707,30 @@ async function handleSaveEdit(e) {
                 </span>
 
                 <span>
-                  {selectedRow.user
-                    ?.full_name ||
-                    selectedRow
-                      .manual_customer
-                      ?.customer_name}
+                  {selectedRow.user?.full_name ||
+                    selectedRow.manual_customer?.customer_name}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-sm">
+                  No. Handphone
+                </span>
+                <span className="text-gray-700">
+                  {selectedRow.user?.phone_number ||
+                    selectedRow.manual_customer?.phone_number || 
+                    "-"}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-start">
+                <span className="text-gray-400 text-sm">
+                  Alamat
+                </span>
+                <span className="text-gray-700 text-right max-w-xs break-words">
+                  {selectedRow.user?.address ||
+                    selectedRow.manual_customer?.address || 
+                    "-"}
                 </span>
               </div>
 
@@ -686,6 +744,16 @@ async function handleSaveEdit(e) {
                     selectedRow.vehicle
                       ?.name
                   }
+                </span>
+              </div>
+
+              {/* MENAMPILKAN MASA SEWA (TANGGAL MULAI s/d SELESAI) */}
+              <div className="flex justify-between">
+                <span className="text-gray-400 text-sm">
+                  Masa Sewa
+                </span>
+                <span className="text-gray-700 font-medium">
+                  {formatDate(selectedRow.start_date || selectedRow.start_time)} - {formatDate(selectedRow.end_date || selectedRow.end_time)}
                 </span>
               </div>
 
@@ -718,51 +786,11 @@ async function handleSaveEdit(e) {
                 onChange={handleEditChange}
                 className={inputCls(false)}
               >
-
-                <option value="pending">
-                  Pending
-                </option>
-
-                <option value="approved">
-                  Approved
-                </option>
-
-                <option value="paid">
-                  Paid
-                </option>
-
-                <option value="ongoing">
-                  Ongoing
-                </option>
-
-                <option value="overdue">
-                  Overdue
-                </option>
-
-                <option value="returned">
-                  Returned
-                </option>
-
-                <option value="inspection">
-                  Inspection
-                </option>
-
-                <option value="waiting_payment">
-                  Waiting Payment
-                </option>
-
-                <option value="repair_process">
-                  Repair Process
-                </option>
-
-                <option value="completed">
-                  Completed
-                </option>
-
-                <option value="rejected">
-                  Rejected
-                </option>
-
+                {Object.keys(RENTAL_STATUS_OPTIONS).map((key) => (
+                  <option key={key} value={key}>
+                    {RENTAL_STATUS_OPTIONS[key]}
+                  </option>
+                ))}
               </select>               
               </div>
 
@@ -781,23 +809,11 @@ async function handleSaveEdit(e) {
                   }
                   className={inputCls(false)}
                 >
-
-                  <option value="unpaid">
-                    Unpaid
-                  </option>
-
-                  <option value="paid">
-                    Paid
-                  </option>
-
-                  <option value="failed">
-                    Failed
-                  </option>
-
-                  <option value="expired">
-                    Expired
-                  </option>
-
+                  {Object.keys(PAYMENT_STATUS_OPTIONS).map((key) => (
+                    <option key={key} value={key}>
+                      {PAYMENT_STATUS_OPTIONS[key]}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -816,13 +832,12 @@ async function handleSaveEdit(e) {
                   }
                   className={inputCls(false)}
                 >
-
                   <option value="transfer">
                     Transfer
                   </option>
 
                   <option value="cash">
-                    Cash
+                    Tunai (Cash)
                   </option>
 
                 </select>
@@ -846,7 +861,7 @@ async function handleSaveEdit(e) {
 
               <div className="col-span-2">
                 <FieldLabel>
-                  Actual Return
+                  Pengembalian Aktual (Actual Return)
                 </FieldLabel>
 
                 <input

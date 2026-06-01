@@ -52,4 +52,9 @@ class Payment extends Model
         'transaction_time' => 'datetime',
         'settlement_time' => 'datetime',
     ];
+
+    public function rental()
+    {
+        return $this->belongsTo(Rental::class, 'rental_id');
+    }
 }
