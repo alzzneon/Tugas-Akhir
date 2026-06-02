@@ -323,51 +323,42 @@ class RentalController extends ResourceController
         return $this->success($this->transformRental($rental), 'Rental berhasil ditolak.');
     }
 
-    public function markOngoing(int $id)
-    {
-        $rental = Rental::findOrFail($id);
+public function markOngoing(int $id)
+{
+    $rental = Rental::findOrFail($id);
 
-        if ($rental->status !== 'approved') {
-            return $this->error(
-                'Rental harus berstatus approved.',
-                422
-            );
-        }
-
-        $hasPaid = Payment::query()
-            ->where('rental_id', $rental->id)
-            ->whereIn('payment_status', [
-                'paid',        // pembayaran manual
-                'settlement',  // midtrans
-                'capture',     // midtrans
-            ])
-            ->exists();
-
-        if (!$hasPaid) {
-            return $this->error(
-                'Rental belum dibayar.',
-                422
-            );
-        }
-
-        $rental->update([
-            'status' => 'ongoing',
-            'actual_pickup_at' => $rental->actual_pickup_at ?? now(),
-        ]);
-
-        return $this->success(
-            $this->transformRental(
-                $rental->fresh([
-                    'user',
-                    'vehicle.type',
-                    'approvedBy',
-                    'rejectedBy',
-                    'payments',
-                ])
-            ),
-            'Rental mulai berjalan.'
+    if ($rental->status !== 'approved') {
+        return $this->error(
+            'Rental harus berstatus approved.',
+            422
         );
     }
+
+    if ($rental->payment_status !== 'paid') {
+        return $this->error(
+            'Rental belum dibayar.',
+            422
+        );
+    }
+
+    $rental->update([
+        'status' => 'ongoing',
+        'actual_pickup_at' => now(),
+    ]);
+
+    return $this->success(
+        $this->transformRental(
+            $rental->fresh([
+                'user',
+                'vehicle.type',
+                'approvedBy',
+                'rejectedBy',
+                'payments',
+            ])
+        ),
+        'Rental mulai berjalan.'
+    );
+}
 
 
 public function markReturned(Request $request, Rental $rental)

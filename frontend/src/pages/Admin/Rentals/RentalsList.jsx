@@ -410,9 +410,11 @@ async function handleSaveEdit(e) {
 
     // ONGOING
     else if (
-      currentStatus === "paid" &&
+      selectedRow.status === "approved" &&
+      selectedRow.payment_status === "paid" &&
       nextStatus === "ongoing"
-    ) {
+    )
+    {
 
       await api.patch(
         `/admin/rentals/${selectedRow.id}/mark-ongoing`
