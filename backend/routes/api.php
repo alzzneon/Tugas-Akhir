@@ -7,7 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\PublicVehicleController;
 use App\Http\Controllers\Api\PublicRentalController;
-use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\DashboardController;
 
 use App\Http\Controllers\Api\Admin\VehicleTypeController;
 use App\Http\Controllers\Api\Admin\VehicleBrandController;
