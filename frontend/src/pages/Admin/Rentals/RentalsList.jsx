@@ -59,6 +59,9 @@ function getPaymentStatusColor(s) {
     case "paid":
       return "green";
 
+    case "refund":
+      return "blue";
+
     case "failed":
     case "expired":
       return "red";
@@ -93,6 +96,7 @@ function getPaymentStatusLabel(s) {
     {
       unpaid: "Belum Bayar",
       paid: "Sudah Bayar",
+      refund: "Refund",
       failed: "Gagal",
       expired: "Kedaluwarsa",
     }[String(s || "").toLowerCase()] || s
@@ -151,6 +155,7 @@ const RENTAL_STATUS_OPTIONS = {
 const PAYMENT_STATUS_OPTIONS = {
   unpaid: "Belum Bayar (Unpaid)",
   paid: "Sudah Bayar (Paid)",
+  refund: "Refund",
   failed: "Gagal (Failed)",
   expired: "Kedaluwarsa (Expired)"
 };
@@ -566,6 +571,66 @@ async function handleSaveEdit(e) {
   }
 }
 
+// async function handleRefund(id) {
+//   const confirmed = window.confirm(
+//     "Yakin ingin melakukan refund rental ini?"
+//   );
+
+//   if (!confirmed) return;
+
+//   try {
+//     await api.patch(
+//       `/admin/rentals/${id}/refund`
+//     );
+
+//     alert("Refund berhasil diproses");
+
+//     await fetchRentals();
+
+//   } catch (err) {
+
+//     console.error(err);
+
+//     alert(
+//       err.response?.data?.message ||
+//       "Refund gagal"
+//     );
+//   }
+// }
+
+async function handleRefund(id) {
+  const confirmed = window.confirm(
+    "Yakin ingin melakukan refund rental ini?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+
+    await api.patch(
+      `/admin/rentals/${id}/refund`
+    );
+
+    alert("Refund berhasil diproses");
+
+    await fetchRentals();
+
+  } catch (err) {
+
+    console.log("ERROR REFUND:");
+    console.log(err.response?.data);
+
+    alert(
+      JSON.stringify(
+        err.response?.data,
+        null,
+        2
+      )
+    );
+
+  }
+}
+
   return (
     <div className="space-y-4">
 
@@ -667,16 +732,33 @@ async function handleSaveEdit(e) {
           return row[col.key];
         }}
 
-        actionsRender={({ row }) => (
-          <button
-            onClick={() =>
-              openEditModal(row)
-            }
-            className="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white"
-          >
-            Edit
-          </button>
-        )}
+actionsRender={({ row }) => (
+  <div className="flex gap-2">
+
+    <button
+      onClick={() =>
+        openEditModal(row)
+      }
+      className="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white"
+    >
+      Edit
+    </button>
+
+    {row.status === "approved" &&
+      row.payment_status === "paid" && (
+        <button
+          onClick={() =>
+            handleRefund(row.id)
+          }
+          className="rounded-md bg-red-600 px-3 py-1 text-xs text-white"
+        >
+          Refund
+        </button>
+      )}
+
+  </div>
+)}
+        
       />
 
       <Modal

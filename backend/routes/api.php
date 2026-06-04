@@ -74,6 +74,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::patch('/rentals/{id}/mark-ongoing', [AdminRentalController::class, 'markOngoing']);
     Route::patch('/rentals/{rental}/complete', [AdminRentalController::class, 'complete']);
     Route::patch('/rentals/{id}/update-status-payment', [AdminRentalController::class, 'updateStatusPayment']);
+    Route::patch('/rentals/{id}/refund', [AdminRentalController::class, 'refund']);
     Route::patch('/rentals/{id}/inspect', [AdminRentalController::class, 'inspectVehicle']);
 });
 

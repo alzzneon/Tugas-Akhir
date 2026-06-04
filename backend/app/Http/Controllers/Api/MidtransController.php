@@ -184,9 +184,110 @@ class MidtransController extends Controller
 
     public function notificationHandler(Request $request)
     {
+        $payload = $request->all();
+
+        $orderId = $payload['order_id'] ?? null;
+        $transactionStatus = $payload['transaction_status'] ?? null;
+        $transactionId = $payload['transaction_id'] ?? null;
+
+        if (!$orderId) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Order ID tidak ditemukan'
+            ], 400);
+
+        }
+
+        $payment = Payment::where(
+            'order_id',
+            $orderId
+        )->first();
+
+        if (!$payment) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment tidak ditemukan'
+            ], 404);
+
+        }
+
+        switch ($transactionStatus) {
+
+            case 'capture':
+            case 'settlement':
+
+                $payment->update([
+                    'payment_status' => $transactionStatus,
+                    'transaction_id' => $transactionId,
+                    'paid_at' => now(),
+                    'raw_response' => $payload,
+                ]);
+
+                $payment->rental()->update([
+                    'payment_status' => 'paid'
+                ]);
+
+                break;
+
+            case 'expire':
+
+                $payment->update([
+                    'payment_status' => 'expire',
+                    'raw_response' => $payload,
+                ]);
+
+                $payment->rental()->update([
+                    'payment_status' => 'unpaid'
+                ]);
+
+                break;
+
+            case 'cancel':
+
+                $payment->update([
+                    'payment_status' => 'cancel',
+                    'raw_response' => $payload,
+                ]);
+
+                $payment->rental()->update([
+                    'payment_status' => 'unpaid'
+                ]);
+
+                break;
+
+            case 'deny':
+
+                $payment->update([
+                    'payment_status' => 'deny',
+                    'raw_response' => $payload,
+                ]);
+
+                $payment->rental()->update([
+                    'payment_status' => 'unpaid'
+                ]);
+
+                break;
+
+            case 'refund':
+
+                $payment->update([
+                    'payment_status' => 'refund',
+                    'raw_response' => $payload,
+                ]);
+
+                $payment->rental()->update([
+                    'payment_status' => 'refund',
+                    'status' => 'cancelled'
+                ]);
+
+                break;
+        }
+
         return response()->json([
-            'success' => true,
-            'message' => 'Notification received',
+            'success' => true
         ]);
     }
+
 }
