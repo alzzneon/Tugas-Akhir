@@ -433,7 +433,7 @@ async function handleSaveEdit(e) {
     ) {
 
       await api.patch(
-        `/admin/rentals/${selectedRow.id}/complete`,
+        `/admin/rentals/${selectedRow.id}/mark-returned`,
         {
           actual_return_at:
             editForm.actual_return_at || null,
