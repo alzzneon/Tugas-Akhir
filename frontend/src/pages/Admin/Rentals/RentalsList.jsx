@@ -1,8 +1,5 @@
-// C:\laragon\www\rentcare\frontend\src\pages\Admin\Rentals\RentalsList.jsx
-
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-
 import DataTable from "../../../Components/Admin/DataTable";
 import Modal from "../../../Components/Admin/Modal";
 
@@ -366,11 +363,6 @@ export default function RentalsList() {
     );
   }
 
-// ==========================================
-// FRONTEND
-// HANDLE SAVE EDIT
-// ==========================================
-
 async function handleSaveEdit(e) {
 
   e.preventDefault();
@@ -571,32 +563,6 @@ async function handleSaveEdit(e) {
   }
 }
 
-// async function handleRefund(id) {
-//   const confirmed = window.confirm(
-//     "Yakin ingin melakukan refund rental ini?"
-//   );
-
-//   if (!confirmed) return;
-
-//   try {
-//     await api.patch(
-//       `/admin/rentals/${id}/refund`
-//     );
-
-//     alert("Refund berhasil diproses");
-
-//     await fetchRentals();
-
-//   } catch (err) {
-
-//     console.error(err);
-
-//     alert(
-//       err.response?.data?.message ||
-//       "Refund gagal"
-//     );
-//   }
-// }
 
 async function handleRefund(id) {
   const confirmed = window.confirm(
