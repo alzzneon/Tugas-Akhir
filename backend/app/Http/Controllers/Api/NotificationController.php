@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use App\Models\Rental;
 
 class NotificationController extends ResourceController
 {
@@ -61,6 +62,20 @@ class NotificationController extends ResourceController
 
     private function transformNotification(Notification $n): array
     {
+        $vehicleType = null;
+
+        if (
+            $n->reference_type === 'rental' &&
+            $n->reference_id
+        ) {
+            $rental = Rental::with('vehicle.type')
+                ->find($n->reference_id);
+
+            $vehicleType = optional(
+                optional($rental?->vehicle)->type
+            )->code;
+        }
+
         return [
             'id' => $n->id,
             'title' => $n->title,
@@ -68,8 +83,10 @@ class NotificationController extends ResourceController
             'type' => $n->type,
             'reference_type' => $n->reference_type,
             'reference_id' => $n->reference_id,
+            'vehicle_type' => $vehicleType,
             'is_read' => $n->is_read,
-            'created_at' => optional($n->created_at)->toDateTimeString(),
+            'created_at' => optional($n->created_at)
+                ->toDateTimeString(),
         ];
     }
 }

@@ -136,17 +136,17 @@ function FieldLabel({ children }) {
 
 // Kamus Translasi untuk Opsi Dropdown Select Status di Dalam Modal
 const RENTAL_STATUS_OPTIONS = {
-  pending: "Menunggu Persetujuan (Pending)",
-  approved: "Disetujui (Approved)",
-  paid: "Lunas (Paid)",
-  ongoing: "Sedang Berjalan (Ongoing)",
-  overdue: "Terlambat (Overdue)",
-  returned: "Dikembangkan (Returned)",
-  inspection: "Dalam Inspeksi (Inspection)",
-  waiting_payment: "Menunggu Pembayaran (Waiting Payment)",
-  repair_process: "Proses Perbaikan (Repair Process)",
-  completed: "Selesai (Completed)",
-  rejected: "Ditolak (Rejected)"
+  pending: "Menunggu Persetujuan",
+  approved: "Disetujui",
+  paid: "Lunas",
+  ongoing: "Sedang Berjalan",
+  overdue: "Terlambat",
+  returned: "Dikembangkan",
+  inspection: "Dalam Inspeksi",
+  waiting_payment: "Menunggu Pembayaran",
+  repair_process: "Proses Perbaikan",
+  completed: "Selesai",
+  rejected: "Ditolak"
 };
 
 const PAYMENT_STATUS_OPTIONS = {
@@ -169,7 +169,8 @@ function SectionDivider({ label }) {
   );
 }
 
-export default function RentalsList() {
+// export default function RentalsList() {
+export default function RentalsList({ type }) {
   const token = localStorage.getItem("token");
 
   const api = useMemo(
@@ -227,9 +228,19 @@ export default function RentalsList() {
 
       const res = await api.get("/admin/rentals");
 
-      setRows(res.data?.data || []);
-    } catch (err) {
-      console.log(err);
+      const rentals = res.data?.data || [];
+
+      const filtered = rentals.filter((item) => {
+        const vehicleType =
+          item.vehicle?.vehicle_type?.code;
+
+        return (
+          vehicleType?.toUpperCase() ===
+          type.toUpperCase()
+        );
+      });
+
+      setRows(filtered);
     } finally {
       setLoading(false);
     }

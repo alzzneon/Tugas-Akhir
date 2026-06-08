@@ -13,79 +13,94 @@ import {
   Users,
 } from "lucide-react";
 
-function cx(...cls) {
-  return cls.filter(Boolean).join(" ");
-}
-
-function formatDateTime(value) {
-  if (!value) return "-";
-
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-
-  return d.toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function getNotificationRoute(item) {
-  if (item?.reference_type === "rental" && item?.reference_id) {
-    return "/admin/penyewaan/mobil";
+  function cx(...cls) {
+    return cls.filter(Boolean).join(" ");
   }
 
-  return null;
-}
+  function formatDateTime(value) {
+    if (!value) return "-";
 
-function SideItem({ to, icon: Icon, label, collapsed }) {
-  return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        cx(
-          "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 text-sm",
-          isActive
-            ? "bg-indigo-50 text-indigo-600 font-medium"
-            : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-        )
-      }
-      title={collapsed ? label : undefined}
-    >
-      <Icon size={16} className="flex-shrink-0" />
-      {!collapsed && <span>{label}</span>}
-    </NavLink>
-  );
-}
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
 
-function SubItem({ to, label }) {
-  return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        cx(
-          "block rounded-md px-3 py-1.5 text-[12.5px] transition-all duration-150",
-          isActive
-            ? "bg-indigo-50 text-indigo-600 font-medium"
-            : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-        )
-      }
-    >
-      {label}
-    </NavLink>
-  );
-}
+    return d.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 
-function SectionLabel({ label, collapsed }) {
-  if (collapsed) return null;
-  return (
-    <p className="px-3 pt-3 pb-1 text-[10px] font-medium tracking-widest text-gray-400 uppercase">
-      {label}
-    </p>
-  );
-}
+
+  function getNotificationRoute(item) {
+    if (
+      item?.reference_type !== "rental" ||
+      !item?.reference_id
+    ) {
+      return null;
+    }
+
+    const type =
+      item?.vehicle_type?.toUpperCase();
+
+    if (type === "MOTOR") {
+      return "/admin/penyewaan/motor";
+    }
+
+    if (type === "MOBIL") {
+      return "/admin/penyewaan/mobil";
+    }
+
+    return "/admin/dashboard";
+  }
+
+  function SideItem({ to, icon: Icon, label, collapsed }) {
+    return (
+      <NavLink
+        to={to}
+        className={({ isActive }) =>
+          cx(
+            "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 text-sm",
+            isActive
+              ? "bg-indigo-50 text-indigo-600 font-medium"
+              : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+          )
+        }
+        title={collapsed ? label : undefined}
+      >
+        <Icon size={16} className="flex-shrink-0" />
+        {!collapsed && <span>{label}</span>}
+      </NavLink>
+    );
+  }
+
+  function SubItem({ to, label }) {
+    return (
+      <NavLink
+        to={to}
+        className={({ isActive }) =>
+          cx(
+            "block rounded-md px-3 py-1.5 text-[12.5px] transition-all duration-150",
+            isActive
+              ? "bg-indigo-50 text-indigo-600 font-medium"
+              : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+          )
+        }
+      >
+        {label}
+      </NavLink>
+    );
+  }
+
+  function SectionLabel({ label, collapsed }) {
+    if (collapsed) return null;
+    return (
+      <p className="px-3 pt-3 pb-1 text-[10px] font-medium tracking-widest text-gray-400 uppercase">
+        {label}
+      </p>
+    );
+  }
 
 export default function AdminLayout() {
   const navigate = useNavigate();
