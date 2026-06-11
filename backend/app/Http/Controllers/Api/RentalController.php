@@ -62,6 +62,26 @@ class RentalController extends ResourceController
             return $this->error('Jadwal kendaraan bentrok dengan rental lain.', 422);
         }
 
+        $hasActiveRental = Rental::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('status', [
+                'pending',
+                'approved',
+                'ongoing',
+                'overdue',
+                'inspection',
+                'waiting_payment',
+                'repair_process',
+            ])
+            ->exists();
+
+        if ($hasActiveRental) {
+            return $this->error(
+                'Anda masih memiliki penyewaan aktif.',
+                422
+            );
+        }
+
         $totalDays = $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
         $totalPrice = $totalDays * (float) $vehicle->daily_rate;
 
