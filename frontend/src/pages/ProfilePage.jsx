@@ -24,15 +24,30 @@ function InputField({
   icon: Icon,
 }) {
   return (
-    <div className="space-y-2">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <label
+        style={{
+          fontSize: "10px",
+          fontWeight: "700",
+          color: "#888888",
+          textTransform: "uppercase",
+          letterSpacing: "0.12em",
+        }}
+      >
         {label}
       </label>
-      <div className="relative group">
+      <div style={{ position: "relative" }}>
         {Icon && (
           <Icon
-            size={18}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors"
+            size={15}
+            style={{
+              position: "absolute",
+              left: "12px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#AAAAAA",
+              pointerEvents: "none",
+            }}
           />
         )}
         <input
@@ -41,8 +56,29 @@ function InputField({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 outline-none transition-all focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-600/5 disabled:bg-slate-100 disabled:text-slate-400"
-          style={Icon ? { paddingLeft: "3rem" } : undefined}
+          style={{
+            width: "100%",
+            paddingTop: "9px",
+            paddingBottom: "9px",
+            paddingLeft: Icon ? "36px" : "12px",
+            paddingRight: "12px",
+            fontSize: "13px",
+            color: "#1A1A1A",
+            backgroundColor: "#FAFAFA",
+            border: "1px solid #DDDDDD",
+            borderRadius: "0",
+            outline: "none",
+            boxSizing: "border-box",
+            transition: "border-color 0.15s",
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = "#C8102E";
+            e.target.style.backgroundColor = "#FFFFFF";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "#DDDDDD";
+            e.target.style.backgroundColor = "#FAFAFA";
+          }}
         />
       </div>
     </div>
@@ -59,15 +95,29 @@ function TextareaField({
   icon: Icon,
 }) {
   return (
-    <div className="space-y-2">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <label
+        style={{
+          fontSize: "10px",
+          fontWeight: "700",
+          color: "#888888",
+          textTransform: "uppercase",
+          letterSpacing: "0.12em",
+        }}
+      >
         {label}
       </label>
-      <div className="relative group">
+      <div style={{ position: "relative" }}>
         {Icon && (
           <Icon
-            size={18}
-            className="absolute left-4 top-4 text-slate-400 group-focus-within:text-red-600 transition-colors"
+            size={15}
+            style={{
+              position: "absolute",
+              left: "12px",
+              top: "12px",
+              color: "#AAAAAA",
+              pointerEvents: "none",
+            }}
           />
         )}
         <textarea
@@ -76,8 +126,31 @@ function TextareaField({
           onChange={onChange}
           rows={rows}
           placeholder={placeholder}
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 outline-none transition-all focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-600/5"
-          style={Icon ? { paddingLeft: "3rem" } : undefined}
+          style={{
+            width: "100%",
+            paddingTop: "9px",
+            paddingBottom: "9px",
+            paddingLeft: Icon ? "36px" : "12px",
+            paddingRight: "12px",
+            fontSize: "13px",
+            color: "#1A1A1A",
+            backgroundColor: "#FAFAFA",
+            border: "1px solid #DDDDDD",
+            borderRadius: "0",
+            outline: "none",
+            resize: "vertical",
+            boxSizing: "border-box",
+            fontFamily: "inherit",
+            transition: "border-color 0.15s",
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = "#C8102E";
+            e.target.style.backgroundColor = "#FFFFFF";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "#DDDDDD";
+            e.target.style.backgroundColor = "#FAFAFA";
+          }}
         />
       </div>
     </div>
@@ -103,6 +176,7 @@ export default function ProfilePage() {
     new_password_confirmation: "",
   });
 
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -182,6 +256,7 @@ export default function ProfilePage() {
       });
       setPasswordMessage("Password berhasil diperbarui.");
       setPasswordForm({ current_password: "", new_password: "", new_password_confirmation: "" });
+      setShowPasswordForm(false);
     } catch (error) {
       setErrorMessage(error.message || "Gagal memperbarui password.");
     } finally {
@@ -191,123 +266,467 @@ export default function ProfilePage() {
 
   const roleLabel = useMemo(() => {
     if (!form.role) return "User";
-    return form.role.replaceAll("_", " ");
+    return form.role.replaceAll("_", " ").toUpperCase();
   }, [form.role]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+      <div
+        style={{
+          minHeight: "100vh",
+          backgroundColor: "#F0F0F0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: "36px",
+            height: "36px",
+            border: "3px solid #DDDDDD",
+            borderTopColor: "#C8102E",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 font-sans">
-      {/* Dynamic Header */}
-      <div className="bg-slate-900 text-white pt-16 pb-24 px-6">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-6">
-            <div className="h-20 w-20 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
-              <User size={38} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Pengaturan Profil</h1>
-              <p className="text-slate-400 mt-1">Kelola data personal dan keamanan akun Anda</p>
-            </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#F0F0F0",
+        fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
+        paddingBottom: "48px",
+      }}
+    >
+      {/* Page header bar */}
+      <div
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderBottom: "2px solid #E0E0E0",
+          borderLeft: "4px solid #C8102E",
+          padding: "0 24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: "56px",
+          marginBottom: "24px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div
+            style={{
+              width: "28px",
+              height: "28px",
+              backgroundColor: "#C8102E",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <User size={15} color="#FFFFFF" />
           </div>
+          <div>
+            <p
+              style={{
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#1A1A1A",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                lineHeight: 1.2,
+              }}
+            >
+              Pengaturan Profil
+            </p>
+            <p style={{ fontSize: "11px", color: "#999999", marginTop: "1px" }}>
+              Kelola data personal dan keamanan akun
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* Role badge */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 10px",
+              backgroundColor: "#FFF5F5",
+              border: "1px solid #F5CCCC",
+              fontSize: "10px",
+              fontWeight: "700",
+              color: "#C8102E",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+            }}
+          >
+            <ShieldCheck size={11} />
+            {roleLabel}
+          </div>
+
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 transition-all text-sm font-medium border border-white/10 self-start md:self-center"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 14px",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #DDDDDD",
+              fontSize: "12px",
+              fontWeight: "600",
+              color: "#444444",
+              cursor: "pointer",
+              letterSpacing: "0.03em",
+            }}
           >
-            <ArrowLeft size={18} /> Kembali
+            <ArrowLeft size={13} />
+            Kembali
           </button>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 -mt-12 space-y-8">
-        {/* Role Badge */}
-        <div className="flex justify-end">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-700 text-xs font-bold uppercase tracking-widest">
-            <ShieldCheck size={14} className="text-red-600" />
-            Akses: <span className="text-red-600">{roleLabel}</span>
-          </div>
-        </div>
-
+      <div
+        style={{
+          maxWidth: "1100px",
+          margin: "0 auto",
+          padding: "0 24px",
+        }}
+      >
         {/* Notifications */}
         {(errorMessage || profileMessage || passwordMessage) && (
-          <div className={`p-4 rounded-2xl text-sm font-medium border animate-in fade-in slide-in-from-top-2 ${
-            errorMessage ? "bg-red-50 border-red-100 text-red-600" : "bg-green-50 border-green-100 text-green-700"
-          }`}>
+          <div
+            style={{
+              marginBottom: "20px",
+              padding: "10px 16px",
+              fontSize: "12px",
+              fontWeight: "600",
+              border: "1px solid",
+              borderLeft: "4px solid",
+              letterSpacing: "0.02em",
+              ...(errorMessage
+                ? {
+                    backgroundColor: "#FFF5F5",
+                    borderColor: "#F5CCCC",
+                    borderLeftColor: "#C8102E",
+                    color: "#C8102E",
+                  }
+                : {
+                    backgroundColor: "#F5FFF8",
+                    borderColor: "#BBDDCC",
+                    borderLeftColor: "#1A7A40",
+                    color: "#1A7A40",
+                  }),
+            }}
+          >
             {errorMessage || profileMessage || passwordMessage}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Form */}
-          <div className="lg:col-span-2 space-y-8">
-            <section className="bg-white rounded-3xl p-8 shadow-xl shadow-slate-200/50 border border-slate-100">
-              <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-50">
-                <div className="p-2 bg-red-50 rounded-xl text-red-600">
-                  <User size={20} />
+        {/* Two-column layout */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 340px",
+            gap: "20px",
+            alignItems: "start",
+          }}
+        >
+          {/* LEFT — Personal Info */}
+          <section
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E0E0E0",
+              borderTop: "3px solid #C8102E",
+            }}
+          >
+            {/* Section header */}
+            <div
+              style={{
+                padding: "14px 20px",
+                borderBottom: "1px solid #EEEEEE",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                backgroundColor: "#FAFAFA",
+              }}
+            >
+              <User size={14} color="#C8102E" />
+              <p
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  color: "#1A1A1A",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                Informasi Pribadi
+              </p>
+            </div>
+
+            <form onSubmit={handleProfileSubmit} style={{ padding: "20px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                {/* Full name spans both columns */}
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <InputField
+                    label="Nama Lengkap"
+                    name="full_name"
+                    value={form.full_name}
+                    onChange={handleProfileChange}
+                    icon={User}
+                  />
                 </div>
-                <h2 className="text-lg font-bold text-slate-900">Informasi Pribadi</h2>
+
+                <InputField
+                  label="Email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleProfileChange}
+                  type="email"
+                  icon={Mail}
+                />
+                <InputField
+                  label="Nomor Telepon"
+                  name="phone_number"
+                  value={form.phone_number}
+                  onChange={handleProfileChange}
+                  icon={Phone}
+                />
+                <InputField
+                  label="Tempat Lahir"
+                  name="birth_place"
+                  value={form.birth_place}
+                  onChange={handleProfileChange}
+                  icon={MapPinned}
+                />
+                <InputField
+                  label="Tanggal Lahir"
+                  name="birth_date"
+                  value={form.birth_date}
+                  onChange={handleProfileChange}
+                  type="date"
+                  icon={CalendarDays}
+                />
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <TextareaField
+                    label="Alamat Lengkap"
+                    name="address"
+                    value={form.address}
+                    onChange={handleProfileChange}
+                    icon={MapPin}
+                    rows={3}
+                  />
+                </div>
               </div>
 
-              <form onSubmit={handleProfileSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <InputField label="Nama Lengkap" name="full_name" value={form.full_name} onChange={handleProfileChange} icon={User} />
-                  </div>
-                  <InputField label="Email Address" name="email" value={form.email} onChange={handleProfileChange} type="email" icon={Mail} />
-                  <InputField label="Nomor Telepon" name="phone_number" value={form.phone_number} onChange={handleProfileChange} icon={Phone} />
-                  <InputField label="Tempat Lahir" name="birth_place" value={form.birth_place} onChange={handleProfileChange} icon={MapPinned} />
-                  <InputField label="Tanggal Lahir" name="birth_date" value={form.birth_date} onChange={handleProfileChange} type="date" icon={CalendarDays} />
-                  <div className="md:col-span-2">
-                    <TextareaField label="Alamat Lengkap" name="address" value={form.address} onChange={handleProfileChange} icon={MapPin} />
-                  </div>
-                </div>
+              <div
+                style={{
+                  marginTop: "20px",
+                  paddingTop: "16px",
+                  borderTop: "1px solid #EEEEEE",
+                }}
+              >
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "7px",
+                    padding: "9px 20px",
+                    backgroundColor: savingProfile ? "#E88888" : "#C8102E",
+                    color: "#FFFFFF",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    border: "none",
+                    cursor: savingProfile ? "not-allowed" : "pointer",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <Save size={14} />
+                  {savingProfile ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </section>
 
-                <div className="pt-4">
+          {/* RIGHT — Security */}
+          <section
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E0E0E0",
+              borderTop: "3px solid #1A1A1A",
+              position: "sticky",
+              top: "24px",
+            }}
+          >
+            {/* Section header */}
+            <div
+              style={{
+                padding: "14px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                backgroundColor: "#FAFAFA",
+                borderBottom: showPasswordForm ? "1px solid #EEEEEE" : "none",
+              }}
+            >
+              <KeyRound size={14} color="#444444" />
+              <p
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  color: "#1A1A1A",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  flex: 1,
+                }}
+              >
+                Keamanan Akun
+              </p>
+            </div>
+
+            {/* Trigger button — always visible */}
+            {!showPasswordForm && (
+              <div style={{ padding: "20px" }}>
+                <p style={{ fontSize: "12px", color: "#888888", marginBottom: "14px", lineHeight: 1.6 }}>
+                  Untuk menjaga keamanan akun, disarankan mengganti password secara berkala.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordForm(true);
+                    setPasswordMessage("");
+                    setErrorMessage("");
+                  }}
+                  style={{
+                    width: "100%",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "7px",
+                    padding: "9px 20px",
+                    backgroundColor: "#1A1A1A",
+                    color: "#FFFFFF",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    border: "none",
+                    cursor: "pointer",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <KeyRound size={14} />
+                  Ubah Password
+                </button>
+              </div>
+            )}
+
+            {/* Password form — revealed on click */}
+            {showPasswordForm && (
+              <form
+                onSubmit={handlePasswordSubmit}
+                style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}
+              >
+                <InputField
+                  label="Password Saat Ini"
+                  name="current_password"
+                  type="password"
+                  value={passwordForm.current_password}
+                  onChange={handlePasswordChange}
+                  icon={KeyRound}
+                />
+                <InputField
+                  label="Password Baru"
+                  name="new_password"
+                  type="password"
+                  value={passwordForm.new_password}
+                  onChange={handlePasswordChange}
+                  icon={KeyRound}
+                />
+                <InputField
+                  label="Konfirmasi Password Baru"
+                  name="new_password_confirmation"
+                  type="password"
+                  value={passwordForm.new_password_confirmation}
+                  onChange={handlePasswordChange}
+                  icon={KeyRound}
+                />
+
+                <div
+                  style={{
+                    paddingTop: "12px",
+                    borderTop: "1px solid #EEEEEE",
+                    display: "flex",
+                    gap: "8px",
+                  }}
+                >
                   <button
                     type="submit"
-                    disabled={savingProfile}
-                    className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-8 py-4 text-sm font-bold text-white transition-all hover:bg-slate-900 shadow-lg shadow-red-100 disabled:opacity-50"
+                    disabled={savingPassword}
+                    style={{
+                      flex: 1,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "7px",
+                      padding: "9px 14px",
+                      backgroundColor: savingPassword ? "#444444" : "#1A1A1A",
+                      color: "#FFFFFF",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      border: "none",
+                      cursor: savingPassword ? "not-allowed" : "pointer",
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                    }}
                   >
-                    <Save size={18} />
-                    {savingProfile ? "Menyimpan..." : "Simpan Perubahan"}
+                    <KeyRound size={13} />
+                    {savingPassword ? "Memperbarui..." : "Simpan"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordForm(false);
+                      setPasswordForm({ current_password: "", new_password: "", new_password_confirmation: "" });
+                      setPasswordMessage("");
+                      setErrorMessage("");
+                    }}
+                    style={{
+                      padding: "9px 14px",
+                      backgroundColor: "#FFFFFF",
+                      color: "#666666",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      border: "1px solid #DDDDDD",
+                      cursor: "pointer",
+                      letterSpacing: "0.03em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Batal
                   </button>
                 </div>
               </form>
-            </section>
-          </div>
-
-          {/* Sidebar - Password */}
-          <div className="lg:col-span-1">
-            <section className="bg-white rounded-3xl p-8 shadow-xl shadow-slate-200/50 border border-slate-100 sticky top-8">
-              <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-50">
-                <div className="p-2 bg-slate-50 rounded-xl text-slate-600">
-                  <KeyRound size={20} />
-                </div>
-                <h2 className="text-lg font-bold text-slate-900">Keamanan</h2>
-              </div>
-
-              <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                <InputField label="Password Saat Ini" name="current_password" type="password" value={passwordForm.current_password} onChange={handlePasswordChange} />
-                <InputField label="Password Baru" name="new_password" type="password" value={passwordForm.new_password} onChange={handlePasswordChange} />
-                <InputField label="Konfirmasi Baru" name="new_password_confirmation" type="password" value={passwordForm.new_password_confirmation} onChange={handlePasswordChange} />
-
-                <button
-                  type="submit"
-                  disabled={savingPassword}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-sm font-bold text-white transition-all hover:bg-red-600 disabled:opacity-50 mt-4"
-                >
-                  <KeyRound size={18} />
-                  {savingPassword ? "Updating..." : "Ubah Password"}
-                </button>
-              </form>
-            </section>
-          </div>
+            )}
+          </section>
         </div>
       </div>
     </div>

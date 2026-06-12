@@ -14,94 +14,79 @@ import {
   Settings,
 } from "lucide-react";
 
-  function cx(...cls) {
-    return cls.filter(Boolean).join(" ");
+function cx(...cls) {
+  return cls.filter(Boolean).join(" ");
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getNotificationRoute(item) {
+  if (item?.reference_type !== "rental" || !item?.reference_id) {
+    return null;
   }
+  const type = item?.vehicle_type?.toUpperCase();
+  if (type === "MOTOR") return "/admin/penyewaan/motor";
+  if (type === "MOBIL") return "/admin/penyewaan/mobil";
+  return "/admin/dashboard";
+}
 
-  function formatDateTime(value) {
-    if (!value) return "-";
+function SideItem({ to, icon: Icon, label, collapsed }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cx(
+          "flex items-center gap-2.5 px-3 py-2 transition-all duration-150 text-[12.5px] font-medium border-l-[3px]",
+          isActive
+            ? "border-l-[#C8102E] bg-[#FFF5F5] text-[#C8102E]"
+            : "border-l-transparent text-[#444444] hover:bg-[#F5F5F5] hover:text-[#1A1A1A]"
+        )
+      }
+      title={collapsed ? label : undefined}
+    >
+      <Icon size={15} className="flex-shrink-0" />
+      {!collapsed && <span className="tracking-wide">{label}</span>}
+    </NavLink>
+  );
+}
 
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return value;
+function SubItem({ to, label }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cx(
+          "block px-3 py-1.5 text-[12px] transition-all duration-150 border-l-[3px]",
+          isActive
+            ? "border-l-[#C8102E] bg-[#FFF5F5] text-[#C8102E] font-semibold"
+            : "border-l-transparent text-[#666666] hover:bg-[#F5F5F5] hover:text-[#1A1A1A]"
+        )
+      }
+    >
+      {label}
+    </NavLink>
+  );
+}
 
-    return d.toLocaleString("id-ID", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-
-  function getNotificationRoute(item) {
-    if (
-      item?.reference_type !== "rental" ||
-      !item?.reference_id
-    ) {
-      return null;
-    }
-
-    const type =
-      item?.vehicle_type?.toUpperCase();
-
-    if (type === "MOTOR") {
-      return "/admin/penyewaan/motor";
-    }
-
-    if (type === "MOBIL") {
-      return "/admin/penyewaan/mobil";
-    }
-
-    return "/admin/dashboard";
-  }
-
-  function SideItem({ to, icon: Icon, label, collapsed }) {
-    return (
-      <NavLink
-        to={to}
-        className={({ isActive }) =>
-          cx(
-            "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 text-sm",
-            isActive
-              ? "bg-indigo-50 text-indigo-600 font-medium"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-          )
-        }
-        title={collapsed ? label : undefined}
-      >
-        <Icon size={16} className="flex-shrink-0" />
-        {!collapsed && <span>{label}</span>}
-      </NavLink>
-    );
-  }
-
-  function SubItem({ to, label }) {
-    return (
-      <NavLink
-        to={to}
-        className={({ isActive }) =>
-          cx(
-            "block rounded-md px-3 py-1.5 text-[12.5px] transition-all duration-150",
-            isActive
-              ? "bg-indigo-50 text-indigo-600 font-medium"
-              : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-          )
-        }
-      >
-        {label}
-      </NavLink>
-    );
-  }
-
-  function SectionLabel({ label, collapsed }) {
-    if (collapsed) return null;
-    return (
-      <p className="px-3 pt-3 pb-1 text-[10px] font-medium tracking-widest text-gray-400 uppercase">
-        {label}
-      </p>
-    );
-  }
+function SectionLabel({ label, collapsed }) {
+  if (collapsed) return null;
+  return (
+    <p className="px-3 pt-4 pb-1 text-[10px] font-bold tracking-[0.15em] text-[#999999] uppercase border-t border-[#EEEEEE] mt-1">
+      {label}
+    </p>
+  );
+}
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -149,27 +134,22 @@ export default function AdminLayout() {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setOpenUserMenu(false);
       }
-
       if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) {
         setOpenNotifMenu(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   async function fetchNotifications() {
     if (!token) return;
-
     try {
       setNotifLoading(true);
-
       const [listRes, countRes] = await Promise.all([
         api.get("/notifications"),
         api.get("/notifications/unread-count"),
       ]);
-
       setNotifications(Array.isArray(listRes.data?.data) ? listRes.data.data : []);
       setUnreadCount(Number(countRes.data?.data?.unread_count || 0));
     } catch (err) {
@@ -181,13 +161,8 @@ export default function AdminLayout() {
 
   useEffect(() => {
     fetchNotifications();
-
     if (!token) return;
-
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 15000);
-
+    const interval = setInterval(() => { fetchNotifications(); }, 15000);
     return () => clearInterval(interval);
   }, [token]);
 
@@ -207,11 +182,8 @@ export default function AdminLayout() {
     try {
       await api.patch(`/notifications/${item.id}/read`);
       await fetchNotifications();
-
       const route = getNotificationRoute(item);
-      if (route) {
-        navigate(route);
-      }
+      if (route) navigate(route);
     } catch (err) {
       console.error("Gagal menandai notifikasi dibaca:", err);
     }
@@ -228,226 +200,414 @@ export default function AdminLayout() {
 
   const groupBtnClass = (isActive) =>
     cx(
-      "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 text-sm",
+      "w-full flex items-center gap-2.5 px-3 py-2 transition-all duration-150 text-[12.5px] font-medium border-l-[3px]",
       isActive
-        ? "text-indigo-600 font-medium"
-        : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+        ? "border-l-[#C8102E] text-[#C8102E]"
+        : "border-l-transparent text-[#444444] hover:bg-[#F5F5F5] hover:text-[#1A1A1A]"
     );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen flex" style={{ backgroundColor: "#F0F0F0", fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif" }}>
+      {/* SIDEBAR */}
       <aside
         className={cx(
-          "fixed left-0 top-0 h-screen bg-white border-r border-gray-100 flex flex-col transition-all duration-200 z-20",
-          collapsed ? "w-[68px]" : "w-60"
+          "fixed left-0 top-0 h-screen flex flex-col transition-all duration-200 z-20",
+          collapsed ? "w-[60px]" : "w-[230px]"
         )}
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderRight: "2px solid #E0E0E0",
+        }}
       >
-        <div className="h-14 px-3.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0">
+        {/* Logo area */}
+        <div
+          className="flex items-center justify-between flex-shrink-0"
+          style={{
+            height: "56px",
+            padding: "0 12px",
+            backgroundColor: "#C8102E",
+            borderBottom: "2px solid #A00D24",
+          }}
+        >
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-7 h-7 rounded-lg bg-[#1A1A2E] flex items-center justify-center flex-shrink-0">
+            {/* Icon: simple car silhouette feel */}
+            <div
+              className="flex items-center justify-center flex-shrink-0"
+              style={{
+                width: "28px",
+                height: "28px",
+                backgroundColor: "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.3)",
+              }}
+            >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="1" y="7" width="4" height="6" rx="1" fill="white" />
-                <rect x="5" y="4" width="4" height="9" rx="1" fill="white" opacity="0.7" />
-                <rect x="9" y="1" width="4" height="12" rx="1" fill="white" opacity="0.45" />
+                <rect x="1" y="7" width="4" height="6" rx="0" fill="white" />
+                <rect x="5" y="4" width="4" height="9" rx="0" fill="white" opacity="0.7" />
+                <rect x="9" y="1" width="4" height="12" rx="0" fill="white" opacity="0.45" />
               </svg>
             </div>
             {!collapsed && (
               <div className="leading-tight overflow-hidden">
-                <p className="text-[12.5px] font-semibold text-gray-900 tracking-wide whitespace-nowrap">
+                <p
+                  className="whitespace-nowrap"
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: "800",
+                    color: "#FFFFFF",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                  }}
+                >
                   AMBRINA RENTAL
                 </p>
-                <p className="text-[10.5px] text-gray-400">Admin Panel</p>
+                <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.7)", letterSpacing: "0.05em" }}>
+                  PANEL ADMINISTRASI
+                </p>
               </div>
             )}
           </div>
 
           <button
             onClick={() => setCollapsed((v) => !v)}
-            className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition flex-shrink-0"
             aria-label="Toggle sidebar"
+            style={{
+              width: "22px",
+              height: "22px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "rgba(255,255,255,0.8)",
+              flexShrink: 0,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+            }}
           >
             <ChevronLeft
               size={14}
-              className={cx("transition-transform", collapsed && "rotate-180")}
+              style={{
+                transition: "transform 0.2s",
+                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+              }}
             />
           </button>
         </div>
 
-<div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-  <SideItem
-    to="/admin/dashboard"
-    icon={LayoutDashboard}
-    label="Dashboard"
-    collapsed={collapsed}
-  />
+        {/* Nav items */}
+        <div className="flex-1 overflow-y-auto py-2" style={{ backgroundColor: "#FFFFFF" }}>
+          <SideItem
+            to="/admin/dashboard"
+            icon={LayoutDashboard}
+            label="Dashboard"
+            collapsed={collapsed}
+          />
 
-  <SectionLabel label="Data" collapsed={collapsed} />
+          <SectionLabel label="Data Master" collapsed={collapsed} />
 
-  <button
-    onClick={() => setOpenMaster((v) => !v)}
-    className={groupBtnClass(isMasterActive)}
-    title={collapsed ? "Master Data" : undefined}
-  >
-    <Layers size={16} className="flex-shrink-0" />
-    {!collapsed && (
-      <>
-        <span className="flex-1 text-left">Master Data</span>
-        <ChevronDown
-          size={13}
-          className={cx("transition-transform text-gray-400", openMaster && "rotate-180")}
-        />
-      </>
-    )}
-  </button>
+          <button
+            onClick={() => setOpenMaster((v) => !v)}
+            className={groupBtnClass(isMasterActive)}
+            title={collapsed ? "Master Data" : undefined}
+          >
+            <Layers size={15} className="flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left tracking-wide">Master Data</span>
+                <ChevronDown
+                  size={12}
+                  style={{
+                    color: "#999999",
+                    transition: "transform 0.2s",
+                    transform: openMaster ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
+              </>
+            )}
+          </button>
 
-  {!collapsed && openMaster && (
-    <div className="pl-7 space-y-0.5 pb-1">
-      <SubItem to="/admin/master/vehicle-types" label="Jenis Kendaraan" />
-      <SubItem to="/admin/master/vehicle-brands" label="Merek Kendaraan" />
-      <SubItem to="/admin/master/transmissions" label="Transmisi" />
-      {/* <SubItem to="/admin/master/rental-statuses" label="Status Rental" />
-      <SubItem to="/admin/master/payment-statuses" label="Status Pembayaran" /> */}
-    </div>
-  )}
+          {!collapsed && openMaster && (
+            <div className="pl-6 pb-1">
+              <SubItem to="/admin/master/vehicle-types" label="Jenis Kendaraan" />
+              <SubItem to="/admin/master/vehicle-brands" label="Merek Kendaraan" />
+              <SubItem to="/admin/master/transmissions" label="Transmisi" />
+            </div>
+          )}
 
-  <button
-    onClick={() => setOpenKendaraan((v) => !v)}
-    className={groupBtnClass(isKendaraanActive)}
-    title={collapsed ? "Kendaraan" : undefined}
-  >
-    <Car size={16} className="flex-shrink-0" />
-    {!collapsed && (
-      <>
-        <span className="flex-1 text-left">Kendaraan</span>
-        <ChevronDown
-          size={13}
-          className={cx("transition-transform text-gray-400", openKendaraan && "rotate-180")}
-        />
-      </>
-    )}
-  </button>
+          <button
+            onClick={() => setOpenKendaraan((v) => !v)}
+            className={groupBtnClass(isKendaraanActive)}
+            title={collapsed ? "Kendaraan" : undefined}
+          >
+            <Car size={15} className="flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left tracking-wide">Kendaraan</span>
+                <ChevronDown
+                  size={12}
+                  style={{
+                    color: "#999999",
+                    transition: "transform 0.2s",
+                    transform: openKendaraan ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
+              </>
+            )}
+          </button>
 
-  {!collapsed && openKendaraan && (
-    <div className="pl-7 space-y-0.5 pb-1">
-      <SubItem to="/admin/kendaraan/mobil" label="Mobil" />
-      <SubItem to="/admin/kendaraan/motor" label="Motor" />
-    </div>
-  )}
+          {!collapsed && openKendaraan && (
+            <div className="pl-6 pb-1">
+              <SubItem to="/admin/kendaraan/mobil" label="Mobil" />
+              <SubItem to="/admin/kendaraan/motor" label="Motor" />
+            </div>
+          )}
 
-  <button
-    onClick={() => setOpenRent((v) => !v)}
-    className={groupBtnClass(isRentActive)}
-    title={collapsed ? "Penyewaan" : undefined}
-  >
-    <CalendarDays size={16} className="flex-shrink-0" />
-    {!collapsed && (
-      <>
-        <span className="flex-1 text-left">Penyewaan</span>
-        <ChevronDown
-          size={13}
-          className={cx("transition-transform text-gray-400", openRent && "rotate-180")}
-        />
-      </>
-    )}
-  </button>
+          <button
+            onClick={() => setOpenRent((v) => !v)}
+            className={groupBtnClass(isRentActive)}
+            title={collapsed ? "Penyewaan" : undefined}
+          >
+            <CalendarDays size={15} className="flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left tracking-wide">Penyewaan</span>
+                <ChevronDown
+                  size={12}
+                  style={{
+                    color: "#999999",
+                    transition: "transform 0.2s",
+                    transform: openRent ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
+              </>
+            )}
+          </button>
 
-  {!collapsed && openRent && (
-    <div className="pl-7 space-y-0.5 pb-1">
-      <SubItem to="/admin/penyewaan/mobil" label="Penyewaan Mobil" />
-      <SubItem to="/admin/penyewaan/motor" label="Penyewaan Motor" />
-    </div>
-  )}
+          {!collapsed && openRent && (
+            <div className="pl-6 pb-1">
+              <SubItem to="/admin/penyewaan/mobil" label="Penyewaan Mobil" />
+              <SubItem to="/admin/penyewaan/motor" label="Penyewaan Motor" />
+            </div>
+          )}
 
-  <SideItem
-    to="/admin/admins"
-    icon={Users}
-    label="Admin Management"
-    collapsed={collapsed}
-  />
+          <SectionLabel label="Sistem" collapsed={collapsed} />
 
-  <SideItem
-    to="/admin/company-profile"
-    icon={Settings}
-    label="Informasi Perusahaan"
-    collapsed={collapsed}
-  /> 
-</div>
+          <SideItem
+            to="/admin/admins"
+            icon={Users}
+            label="Manajemen Admin"
+            collapsed={collapsed}
+          />
+
+          <SideItem
+            to="/admin/company-profile"
+            icon={Settings}
+            label="Informasi Perusahaan"
+            collapsed={collapsed}
+          />
+        </div>
+
+        {/* Sidebar footer strip */}
+        {!collapsed && (
+          <div
+            style={{
+              borderTop: "2px solid #E0E0E0",
+              padding: "8px 12px",
+              backgroundColor: "#FAFAFA",
+            }}
+          >
+            <p style={{ fontSize: "10px", color: "#BBBBBB", letterSpacing: "0.05em" }}>
+              © 2025 AMBRINA RENTAL
+            </p>
+          </div>
+        )}
       </aside>
 
+      {/* MAIN CONTENT */}
       <div
-        className={cx(
-          "flex-1 flex flex-col transition-all duration-200",
-          collapsed ? "ml-[68px]" : "ml-60"
-        )}
+        className={cx("flex-1 flex flex-col transition-all duration-200")}
+        style={{ marginLeft: collapsed ? "60px" : "230px" }}
       >
-        <header className="sticky top-0 z-10 bg-white border-b border-gray-100 h-14 flex items-center gap-3 px-5">
-          <div className="flex-1 relative">
+        {/* HEADER */}
+        <header
+          className="sticky top-0 z-10 flex items-center gap-3 px-5"
+          style={{
+            height: "56px",
+            backgroundColor: "#FFFFFF",
+            borderBottom: "2px solid #E0E0E0",
+          }}
+        >
+          {/* Red accent bar on left edge of header */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: "4px",
+              height: "100%",
+              backgroundColor: "#C8102E",
+            }}
+          />
+
+          {/* Search */}
+          <div className="flex-1 relative" style={{ maxWidth: "320px" }}>
             <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={13}
+              style={{
+                position: "absolute",
+                left: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#999999",
+              }}
             />
             <input
               placeholder="Cari penyewaan, kendaraan, pelanggan..."
-              className="w-full max-w-xs rounded-lg border border-gray-100 bg-gray-50 pl-8 pr-3 py-1.5 text-[12.5px] text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 transition"
+              style={{
+                width: "100%",
+                paddingLeft: "30px",
+                paddingRight: "10px",
+                paddingTop: "6px",
+                paddingBottom: "6px",
+                fontSize: "12px",
+                color: "#333333",
+                backgroundColor: "#F5F5F5",
+                border: "1px solid #DDDDDD",
+                outline: "none",
+                borderRadius: "0",
+                letterSpacing: "0.02em",
+              }}
             />
           </div>
 
+          <div style={{ flex: 1 }} />
+
+          {/* Notification bell */}
           <div className="relative" ref={notifMenuRef}>
             <button
               type="button"
               onClick={() => setOpenNotifMenu((v) => !v)}
-              className="relative w-8 h-8 rounded-lg border border-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition"
+              style={{
+                position: "relative",
+                width: "34px",
+                height: "34px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #DDDDDD",
+                cursor: "pointer",
+                color: "#555555",
+                borderRadius: "0",
+              }}
             >
               <Bell size={15} />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "-6px",
+                    right: "-6px",
+                    minWidth: "18px",
+                    height: "18px",
+                    padding: "0 4px",
+                    backgroundColor: "#C8102E",
+                    color: "#FFFFFF",
+                    fontSize: "10px",
+                    fontWeight: "700",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "0",
+                  }}
+                >
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
             </button>
 
             {openNotifMenu && (
-              <div className="absolute right-0 mt-2 w-96 rounded-xl border border-gray-100 bg-white shadow-lg shadow-gray-100/60 overflow-hidden z-30">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                  <p className="text-sm font-semibold text-gray-800">Notifikasi</p>
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  marginTop: "6px",
+                  width: "380px",
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #DDDDDD",
+                  borderTop: "3px solid #C8102E",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                  zIndex: 30,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderBottom: "1px solid #EEEEEE",
+                    backgroundColor: "#FAFAFA",
+                  }}
+                >
+                  <p style={{ fontSize: "12px", fontWeight: "700", color: "#1A1A1A", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Notifikasi
+                  </p>
                   <button
                     type="button"
                     onClick={handleReadAll}
-                    className="text-xs text-indigo-600 hover:underline"
+                    style={{ fontSize: "11px", color: "#C8102E", background: "none", border: "none", cursor: "pointer", fontWeight: "600" }}
                   >
-                    Tandai semua dibaca
+                    Tandai Semua Dibaca
                   </button>
                 </div>
 
-                <div className="max-h-96 overflow-y-auto">
+                <div style={{ maxHeight: "380px", overflowY: "auto" }}>
                   {notifLoading ? (
-                    <div className="px-4 py-4 text-sm text-gray-500">Memuat notifikasi...</div>
+                    <div style={{ padding: "14px", fontSize: "12px", color: "#888888" }}>Memuat notifikasi...</div>
                   ) : notifications.length === 0 ? (
-                    <div className="px-4 py-4 text-sm text-gray-500">Belum ada notifikasi.</div>
+                    <div style={{ padding: "14px", fontSize: "12px", color: "#888888" }}>Belum ada notifikasi.</div>
                   ) : (
                     notifications.map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => handleReadOne(item)}
-                        className={cx(
-                          "w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition",
-                          !item.is_read && "bg-indigo-50/40"
-                        )}
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          padding: "10px 14px",
+                          borderBottom: "1px solid #F0F0F0",
+                          backgroundColor: !item.is_read ? "#FFF8F8" : "#FFFFFF",
+                          cursor: "pointer",
+                          display: "block",
+                          border: "none",
+                          borderBottom: "1px solid #F0F0F0",
+                        }}
+                        className="hover:bg-[#F5F5F5] transition-colors"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-800">{item.title}</p>
-                            <p className="mt-1 text-xs text-gray-600 line-clamp-2">
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: "12px", fontWeight: "700", color: "#1A1A1A" }}>{item.title}</p>
+                            <p style={{ marginTop: "3px", fontSize: "11px", color: "#666666", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                               {item.message}
                             </p>
-                            <p className="mt-2 text-[11px] text-gray-400">
+                            <p style={{ marginTop: "5px", fontSize: "10px", color: "#AAAAAA" }}>
                               {formatDateTime(item.created_at)}
                             </p>
                           </div>
-
                           {!item.is_read && (
-                            <span className="mt-1 w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" />
+                            <span
+                              style={{
+                                marginTop: "4px",
+                                width: "8px",
+                                height: "8px",
+                                borderRadius: "0",
+                                backgroundColor: "#C8102E",
+                                flexShrink: 0,
+                                display: "block",
+                              }}
+                            />
                           )}
                         </div>
                       </button>
@@ -458,50 +618,114 @@ export default function AdminLayout() {
             )}
           </div>
 
+          {/* User menu */}
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setOpenUserMenu((v) => !v)}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-gray-100 bg-white hover:bg-gray-50 transition"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "5px 10px",
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #DDDDDD",
+                cursor: "pointer",
+                borderRadius: "0",
+              }}
             >
-              <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-[10px] font-semibold text-indigo-600">
+              <div
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  backgroundColor: "#C8102E",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "10px",
+                  fontWeight: "800",
+                  color: "#FFFFFF",
+                  letterSpacing: "0.05em",
+                  flexShrink: 0,
+                  borderRadius: "0",
+                }}
+              >
                 AD
               </div>
-              <span className="hidden sm:inline text-[12.5px] font-medium text-gray-700">
+              <span
+                className="hidden sm:inline"
+                style={{ fontSize: "12px", fontWeight: "600", color: "#333333", letterSpacing: "0.03em" }}
+              >
                 Admin
               </span>
               <ChevronDown
-                size={12}
-                className={cx(
-                  "text-gray-400 transition-transform",
-                  openUserMenu && "rotate-180"
-                )}
+                size={11}
+                style={{
+                  color: "#888888",
+                  transition: "transform 0.2s",
+                  transform: openUserMenu ? "rotate(180deg)" : "rotate(0deg)",
+                }}
               />
             </button>
 
             {openUserMenu && (
-              <div className="absolute right-0 mt-1.5 w-40 rounded-xl border border-gray-100 bg-white shadow-lg shadow-gray-100/60 overflow-hidden z-20">
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  marginTop: "4px",
+                  width: "150px",
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #DDDDDD",
+                  borderTop: "3px solid #C8102E",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  zIndex: 20,
+                  overflow: "hidden",
+                }}
+              >
                 <button
                   onClick={goToProfile}
-                  className="w-full px-4 py-2.5 text-left text-[12.5px] text-gray-700 hover:bg-gray-50 transition"
-                >
-                  Profile
-                </button>
-                <div className="border-t border-gray-100" />
-                <button
-                  onClick={() => {
-                    setOpenUserMenu(false);
-                    logout();
+                  style={{
+                    width: "100%",
+                    padding: "9px 14px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    color: "#333333",
+                    fontWeight: "500",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #EEEEEE",
+                    letterSpacing: "0.02em",
                   }}
-                  className="w-full px-4 py-2.5 text-left text-[12.5px] text-red-500 hover:bg-red-50 transition"
+                  className="hover:bg-[#F5F5F5] transition-colors"
                 >
-                  Logout
+                  Profil Saya
+                </button>
+                <button
+                  onClick={() => { setOpenUserMenu(false); logout(); }}
+                  style={{
+                    width: "100%",
+                    padding: "9px 14px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    color: "#C8102E",
+                    fontWeight: "600",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    letterSpacing: "0.02em",
+                  }}
+                  className="hover:bg-[#FFF5F5] transition-colors"
+                >
+                  Keluar
                 </button>
               </div>
             )}
           </div>
         </header>
 
-        <main className="p-6">
+        {/* Page content */}
+        <main style={{ padding: "24px", flex: 1, backgroundColor: "#F0F0F0" }}>
           <Outlet />
         </main>
       </div>
