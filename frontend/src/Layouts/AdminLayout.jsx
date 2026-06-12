@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   Car,
   Users,
+  Settings,
 } from "lucide-react";
 
   function cx(...cls) {
@@ -363,6 +364,13 @@ export default function AdminLayout() {
     label="Admin Management"
     collapsed={collapsed}
   />
+
+  <SideItem
+    to="/admin/company-profile"
+    icon={Settings}
+    label="Informasi Perusahaan"
+    collapsed={collapsed}
+  /> 
 </div>
       </aside>
 

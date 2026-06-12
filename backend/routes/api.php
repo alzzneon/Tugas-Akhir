@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Services\FonnteService;
 use App\Http\Controllers\Api\MidtransController;
 
+use App\Http\Controllers\Api\Admin\CompanyProfileController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RentalController;
 
@@ -76,6 +77,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::patch('/rentals/{id}/update-status-payment', [AdminRentalController::class, 'updateStatusPayment']);
     Route::patch('/rentals/{id}/refund', [AdminRentalController::class, 'refund']);
     Route::patch('/rentals/{id}/inspect', [AdminRentalController::class, 'inspectVehicle']);
+
+    Route::get('/company-profile', [CompanyProfileController::class, 'index']);
+    Route::put('/company-profile', [CompanyProfileController::class, 'update']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -103,4 +107,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('public')->group(function () {
         Route::get('/vehicles', [PublicVehicleController::class, 'index']);
         Route::post('/rentals', [PublicRentalController::class, 'store']);
+
+        Route::get(
+    '/company-profile',
+    [CompanyProfileController::class, 'index']
+);
     });
