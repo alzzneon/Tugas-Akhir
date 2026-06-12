@@ -326,72 +326,141 @@ class RentalController extends ResourceController
         return $this->success($this->transformRental($rental), 'Rental berhasil ditolak.');
     }
 
-public function markOngoing(int $id)
-{
-    $rental = Rental::findOrFail($id);
+    public function markOngoing(int $id)
+    {
+        $rental = Rental::findOrFail($id);
 
-    if ($rental->status !== 'approved') {
-        return $this->error(
-            'Rental harus berstatus approved.',
-            422
+        if ($rental->status !== 'approved') {
+            return $this->error(
+                'Rental harus berstatus approved.',
+                422
+            );
+        }
+
+        if ($rental->payment_status !== 'paid') {
+            return $this->error(
+                'Rental belum dibayar.',
+                422
+            );
+        }
+
+        $rental->update([
+            'status' => 'ongoing',
+            'actual_pickup_at' => now(),
+        ]);
+
+        return $this->success(
+            $this->transformRental(
+                $rental->fresh([
+                    'user',
+                    'vehicle.type',
+                    'approvedBy',
+                    'rejectedBy',
+                    'payments',
+                ])
+            ),
+            'Rental mulai berjalan.'
         );
     }
 
-    if ($rental->payment_status !== 'paid') {
-        return $this->error(
-            'Rental belum dibayar.',
-            422
+    public function markReturned(Request $request, Rental $rental)
+    {
+        if (!in_array($rental->status, [
+            'ongoing',
+            'overdue',
+        ], true)) {
+
+            return $this->error(
+                'Rental belum bisa dikembalikan.',
+                422
+            );
+        }
+
+        $request->validate([
+            'actual_return_at' => ['nullable', 'date'],
+        ]);
+
+        $actualReturn = Carbon::parse(
+            $request->actual_return_at ?? now()
+        );
+
+        $rental->load([
+            'vehicle.type',
+            'user',
+        ]);
+
+        $lateHours = 0;
+        $totalFine = 0;
+        $calculationType = null;
+
+        if ($actualReturn->greaterThan($rental->end_date)) {
+
+            $lateHours = $rental->end_date
+                ->diffInHours($actualReturn);
+
+            $threshold =
+                (int) $rental->vehicle->type->late_fee_threshold_hours;
+
+            if ($lateHours <= $threshold) {
+
+                $totalFine =
+                    $lateHours *
+                    (float) $rental->vehicle->type->late_fee_per_hour;
+
+                $calculationType = 'hourly';
+
+            } else {
+
+                $additionalDays = ceil(
+                    $lateHours / 24
+                );
+
+                $totalFine =
+                    $additionalDays *
+                    (float) $rental->vehicle->daily_rate;
+
+                $calculationType = 'additional_rental_day';
+            }
+        }
+
+        DB::transaction(function () use (
+            $rental,
+            $actualReturn,
+            $totalFine,
+            $lateHours,
+            $calculationType
+        ) {
+
+            $rental->update([
+                'status' => 'returned',
+                'actual_return_at' => $actualReturn,
+            ]);
+
+            if ($totalFine > 0) {
+
+                $rental->lateFines()->create([
+                    'total_fine' => $totalFine,
+                    'status' => 'unpaid',
+                    'calculation_type' => $calculationType,
+                    'late_hours' => $lateHours,
+                ]);
+            }
+        });
+
+        if ($totalFine > 0) {
+
+            $this->sendLateFineWhatsapp(
+                $rental->fresh(['vehicle']),
+                $totalFine
+            );
+        }
+
+        return $this->success(
+            $rental->fresh(),
+            'Kendaraan berhasil dikembalikan.'
         );
     }
 
-    $rental->update([
-        'status' => 'ongoing',
-        'actual_pickup_at' => now(),
-    ]);
-
-    return $this->success(
-        $this->transformRental(
-            $rental->fresh([
-                'user',
-                'vehicle.type',
-                'approvedBy',
-                'rejectedBy',
-                'payments',
-            ])
-        ),
-        'Rental mulai berjalan.'
-    );
-}
-
-
-public function markReturned(Request $request, Rental $rental)
-{
-    if (!in_array($rental->status, [
-        'ongoing',
-        'overdue',
-    ], true)) {
-
-        return $this->error(
-            'Rental belum bisa dikembalikan.',
-            422
-        );
-    }
-
-    $request->validate([
-        'actual_return_at' => ['nullable', 'date'],
-    ]);
-
-    $rental->update([
-        'status' => 'returned',
-        'actual_return_at' =>
-            $request->actual_return_at ?? now(),
-    ]);
-
-    return $this->success(
-        $rental->fresh(),
-        'Kendaraan berhasil dikembalikan.'
-    );
-}
 
     public function updateStatusPayment(Request $request, Rental $rental)
     {
@@ -466,101 +535,216 @@ if (
         ]);
     }
 
-public function refund(int $id)
-{
-    try {
+    public function refund(int $id)
+    {
+        try {
 
-        Log::info('REFUND START', [
-            'rental_id' => $id
-        ]);
+            Log::info('REFUND START', [
+                'rental_id' => $id
+            ]);
 
-        $rental = Rental::findOrFail($id);
+            $rental = Rental::findOrFail($id);
 
-        Log::info('RENTAL FOUND', [
-            'id' => $rental->id,
-            'status' => $rental->status,
-            'payment_status' => $rental->payment_status,
-        ]);
-
-        // hanya boleh refund jika sudah dibayar
-        if ($rental->payment_status !== 'paid') {
-
-            Log::warning('REFUND FAILED - PAYMENT NOT PAID', [
-                'rental_id' => $rental->id,
+            Log::info('RENTAL FOUND', [
+                'id' => $rental->id,
+                'status' => $rental->status,
                 'payment_status' => $rental->payment_status,
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Rental belum dibayar.'
-            ], 422);
-        }
+            // hanya boleh refund jika sudah dibayar
+            if ($rental->payment_status !== 'paid') {
 
-        // hanya boleh refund sebelum kendaraan diserahkan
-        if ($rental->status !== 'approved') {
+                Log::warning('REFUND FAILED - PAYMENT NOT PAID', [
+                    'rental_id' => $rental->id,
+                    'payment_status' => $rental->payment_status,
+                ]);
 
-            Log::warning('REFUND FAILED - INVALID STATUS', [
-                'rental_id' => $rental->id,
-                'status' => $rental->status,
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Rental belum dibayar.'
+                ], 422);
+            }
+
+            // hanya boleh refund sebelum kendaraan diserahkan
+            if ($rental->status !== 'approved') {
+
+                Log::warning('REFUND FAILED - INVALID STATUS', [
+                    'rental_id' => $rental->id,
+                    'status' => $rental->status,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Refund hanya bisa dilakukan sebelum kendaraan diserahkan.'
+                ], 422);
+            }
+
+            $payment = Payment::where(
+                'rental_id',
+                $rental->id
+            )
+            ->latest()
+            ->first();
+
+            if (!$payment) {
+
+                Log::warning('REFUND FAILED - PAYMENT NOT FOUND', [
+                    'rental_id' => $rental->id
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data pembayaran tidak ditemukan.'
+                ], 404);
+            }
+
+            Log::info('PAYMENT FOUND', [
+                'payment_id' => $payment->id,
+                'payment_status' => $payment->payment_status,
+                'amount' => $payment->amount,
+                'order_id' => $payment->order_id,
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Refund hanya bisa dilakukan sebelum kendaraan diserahkan.'
-            ], 422);
-        }
+            /*
+            |--------------------------------------------------------------------------
+            | SANDBOX MODE
+            |--------------------------------------------------------------------------
+            */
+            if (!config('midtrans.is_production')) {
 
-        $payment = Payment::where(
-            'rental_id',
-            $rental->id
-        )
-        ->latest()
-        ->first();
+                Log::info('REFUND SANDBOX MODE');
 
-        if (!$payment) {
+                DB::transaction(function () use (
+                    $payment,
+                    $rental
+                ) {
 
-            Log::warning('REFUND FAILED - PAYMENT NOT FOUND', [
-                'rental_id' => $rental->id
+                    Log::info('UPDATING PAYMENT', [
+                        'payment_id' => $payment->id
+                    ]);
+
+                    $payment->update([
+                        'payment_status' => 'refund',
+                        'notes' => 'Refund Sandbox'
+                    ]);
+
+                    Log::info('UPDATING RENTAL', [
+                        'rental_id' => $rental->id
+                    ]);
+
+                    $rental->update([
+                        'payment_status' => 'refunded',
+                        'status' => 'cancelled'
+                    ]);
+                });
+
+                Log::info('REFUND SANDBOX SUCCESS', [
+                    'rental_id' => $rental->id
+                ]);
+
+                if ($rental->user_id) {
+
+                    $this->createNotification(
+                        $rental->user_id,
+                        'Refund Berhasil',
+                        'Dana pembayaran rental telah direfund dan pesanan dibatalkan.',
+                        'payment_refund',
+                        'rental',
+                        $rental->id
+                    );
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Refund Sandbox berhasil diproses'
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | PRODUCTION MODE
+            |--------------------------------------------------------------------------
+            */
+
+            $payment = Payment::where(
+                'rental_id',
+                $rental->id
+            )
+            ->whereIn('payment_status', [
+                'settlement',
+                'capture'
+            ])
+            ->latest()
+            ->first();
+
+            if (!$payment) {
+
+                Log::warning('MIDTRANS PAYMENT NOT FOUND', [
+                    'rental_id' => $rental->id
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transaksi Midtrans tidak ditemukan.'
+                ], 404);
+            }
+
+            $baseUrl = config('midtrans.is_production')
+                ? 'https://api.midtrans.com'
+                : 'https://api.sandbox.midtrans.com';
+
+            Log::info('CALL MIDTRANS REFUND', [
+                'order_id' => $payment->order_id,
+                'base_url' => $baseUrl
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Data pembayaran tidak ditemukan.'
-            ], 404);
-        }
+            $response = Http::withBasicAuth(
+                config('midtrans.server_key'),
+                ''
+            )->post(
+                "{$baseUrl}/v2/{$payment->order_id}/refund",
+                [
+                    'refund_key' => 'RF-' . now()->timestamp,
+                    'amount' => (int) $payment->amount,
+                    'reason' => 'Pembatalan rental'
+                ]
+            );
 
-        Log::info('PAYMENT FOUND', [
-            'payment_id' => $payment->id,
-            'payment_status' => $payment->payment_status,
-            'amount' => $payment->amount,
-            'order_id' => $payment->order_id,
-        ]);
+            $data = $response->json();
 
-        /*
-        |--------------------------------------------------------------------------
-        | SANDBOX MODE
-        |--------------------------------------------------------------------------
-        */
-        if (!config('midtrans.is_production')) {
+            Log::info('MIDTRANS RESPONSE', [
+                'http_status' => $response->status(),
+                'response' => $data
+            ]);
 
-            Log::info('REFUND SANDBOX MODE');
+            if (
+                !$response->successful() ||
+                !isset($data['status_code']) ||
+                !in_array(
+                    (string) $data['status_code'],
+                    ['200', '201']
+                )
+            ) {
+
+                Log::error('MIDTRANS REFUND FAILED', [
+                    'response' => $data
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Refund gagal',
+                    'midtrans_response' => $data,
+                ], 422);
+            }
 
             DB::transaction(function () use (
                 $payment,
                 $rental
             ) {
 
-                Log::info('UPDATING PAYMENT', [
-                    'payment_id' => $payment->id
-                ]);
-
                 $payment->update([
                     'payment_status' => 'refund',
-                    'notes' => 'Refund Sandbox'
-                ]);
-
-                Log::info('UPDATING RENTAL', [
-                    'rental_id' => $rental->id
+                    'notes' => 'Refund Midtrans'
                 ]);
 
                 $rental->update([
@@ -569,7 +753,7 @@ public function refund(int $id)
                 ]);
             });
 
-            Log::info('REFUND SANDBOX SUCCESS', [
+            Log::info('REFUND SUCCESS', [
                 'rental_id' => $rental->id
             ]);
 
@@ -587,140 +771,25 @@ public function refund(int $id)
 
             return response()->json([
                 'success' => true,
-                'message' => 'Refund Sandbox berhasil diproses'
-            ]);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | PRODUCTION MODE
-        |--------------------------------------------------------------------------
-        */
-
-        $payment = Payment::where(
-            'rental_id',
-            $rental->id
-        )
-        ->whereIn('payment_status', [
-            'settlement',
-            'capture'
-        ])
-        ->latest()
-        ->first();
-
-        if (!$payment) {
-
-            Log::warning('MIDTRANS PAYMENT NOT FOUND', [
-                'rental_id' => $rental->id
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Transaksi Midtrans tidak ditemukan.'
-            ], 404);
-        }
-
-        $baseUrl = config('midtrans.is_production')
-            ? 'https://api.midtrans.com'
-            : 'https://api.sandbox.midtrans.com';
-
-        Log::info('CALL MIDTRANS REFUND', [
-            'order_id' => $payment->order_id,
-            'base_url' => $baseUrl
-        ]);
-
-        $response = Http::withBasicAuth(
-            config('midtrans.server_key'),
-            ''
-        )->post(
-            "{$baseUrl}/v2/{$payment->order_id}/refund",
-            [
-                'refund_key' => 'RF-' . now()->timestamp,
-                'amount' => (int) $payment->amount,
-                'reason' => 'Pembatalan rental'
-            ]
-        );
-
-        $data = $response->json();
-
-        Log::info('MIDTRANS RESPONSE', [
-            'http_status' => $response->status(),
-            'response' => $data
-        ]);
-
-        if (
-            !$response->successful() ||
-            !isset($data['status_code']) ||
-            !in_array(
-                (string) $data['status_code'],
-                ['200', '201']
-            )
-        ) {
-
-            Log::error('MIDTRANS REFUND FAILED', [
-                'response' => $data
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Refund gagal',
+                'message' => 'Refund berhasil diproses',
                 'midtrans_response' => $data,
-            ], 422);
-        }
-
-        DB::transaction(function () use (
-            $payment,
-            $rental
-        ) {
-
-            $payment->update([
-                'payment_status' => 'refund',
-                'notes' => 'Refund Midtrans'
             ]);
 
-            $rental->update([
-                'payment_status' => 'refunded',
-                'status' => 'cancelled'
+        } catch (\Throwable $e) {
+
+            Log::error('REFUND EXCEPTION', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString(),
             ]);
-        });
 
-        Log::info('REFUND SUCCESS', [
-            'rental_id' => $rental->id
-        ]);
-
-        if ($rental->user_id) {
-
-            $this->createNotification(
-                $rental->user_id,
-                'Refund Berhasil',
-                'Dana pembayaran rental telah direfund dan pesanan dibatalkan.',
-                'payment_refund',
-                'rental',
-                $rental->id
-            );
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Refund berhasil diproses',
-            'midtrans_response' => $data,
-        ]);
-
-    } catch (\Throwable $e) {
-
-        Log::error('REFUND EXCEPTION', [
-            'message' => $e->getMessage(),
-            'line' => $e->getLine(),
-            'file' => $e->getFile(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 500);
     }
-}
 
     private function sendApprovalWhatsapp(Rental $rental): void
     {
@@ -825,6 +894,73 @@ public function refund(int $id)
                 $message,
                 'failed',
                 'rejection',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+    private function sendLateFineWhatsapp(Rental $rental, float $totalFine): void 
+    {
+
+        $phone = $this->resolveWhatsappPhone($rental);
+
+        if (!$phone) {
+            return;
+        }
+
+        $customerName =
+            $rental->user?->full_name
+            ?: $rental->customer_name
+            ?: 'Customer';
+
+        $message =
+            "Halo {$customerName},\n\n" .
+            "Kendaraan telah berhasil dikembalikan.\n\n" .
+            "Kode Booking: {$rental->booking_code}\n" .
+            "Kendaraan: " . ($rental->vehicle->name ?? '-') . "\n\n" .
+            "Terdapat biaya keterlambatan sebesar:\n" .
+            "Rp " . number_format($totalFine, 0, ',', '.') . "\n\n" .
+            "Silakan melakukan pembayaran melalui aplikasi.\n\n" .
+            "Terima kasih.";
+
+        try {
+
+            $response = $this->fonnteService->sendMessage(
+                $phone,
+                $message
+            );
+
+            $this->logWhatsappMessage(
+                $rental->id,
+                $rental->user_id,
+                $phone,
+                $message,
+                'sent',
+                'late_fine',
+                isset($response['id'])
+                    ? (string) $response['id']
+                    : null,
+                null
+            );
+
+        } catch (\Throwable $e) {
+
+            \Log::error(
+                'Gagal kirim WA denda keterlambatan',
+                [
+                    'rental_id' => $rental->id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            $this->logWhatsappMessage(
+                $rental->id,
+                $rental->user_id,
+                $phone,
+                $message,
+                'failed',
+                'late_fine',
                 null,
                 $e->getMessage()
             );
@@ -1078,6 +1214,8 @@ public function inspectVehicle(Request $request, int $id)
         ]);
 
         $totalExtra = 0;
+        $totalExtra += $rental->lateFines()
+            ->sum('total_fine');
 
         // DENDA TELAT
         if ($validated['has_late_fine']) {
