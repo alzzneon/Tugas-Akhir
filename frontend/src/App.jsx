@@ -11,7 +11,7 @@ import VehicleBrands from "./pages/Admin/Master/VehicleBrands";
 import Transmissions from "./pages/Admin/Master/Transmissions";
 import RentalStatuses from "./pages/Admin/Master/RentalStatuses";
 import PaymentStatuses from "./pages/Admin/Master/PaymentStatuses";
-
+import VehicleMaintenance from "./pages/Admin/VehicleMaintenance";
 import Cars from "./pages/Admin/Vehicles/Cars";
 import Motorcycles from "./pages/Admin/Vehicles/Motorcycles";
 import AdminUsers from "./pages/Admin/AdminUsers";
@@ -186,7 +186,8 @@ export default function App() {
 
         <Route path="penyewaan/mobil" element={<RentalsList type="mobil" />} />
         <Route path="penyewaan/motor" element={<RentalsList type="motor" />} />
-
+        <Route path="maintenance" element={<VehicleMaintenance />} />
+        
         <Route path="/admin/company-profile" element={<CompanyProfile />}/>
 
         <Route path="*" element={<Navigate to="dashboard" replace />} />

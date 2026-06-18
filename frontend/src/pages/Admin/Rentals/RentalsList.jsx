@@ -76,14 +76,15 @@ function getRentalStatusLabel(s) {
     {
       pending: "Menunggu Persetujuan",
       approved: "Disetujui",
-      paid: "Lunas",
       ongoing: "Sedang Berjalan",
-      completed: "Selesai",
       overdue: "Terlambat",
+      returned: "Dikembalikan",
+      inspection: "Dalam Inspeksi",
       waiting_payment: "Menunggu Pembayaran Denda",
+      repair_process: "Proses Perbaikan",
+      completed: "Selesai",
       rejected: "Ditolak",
       cancelled: "Dibatalkan",
-      expired: "Kedaluwarsa",
     }[String(s || "").toLowerCase()] || s
   );
 }
@@ -138,15 +139,15 @@ function FieldLabel({ children }) {
 const RENTAL_STATUS_OPTIONS = {
   pending: "Menunggu Persetujuan",
   approved: "Disetujui",
-  paid: "Lunas",
   ongoing: "Sedang Berjalan",
   overdue: "Terlambat",
-  returned: "Dikembangkan",
+  returned: "Dikembalikan",
   inspection: "Dalam Inspeksi",
-  waiting_payment: "Menunggu Pembayaran",
+  waiting_payment: "Menunggu Pembayaran Denda",
   repair_process: "Proses Perbaikan",
   completed: "Selesai",
-  rejected: "Ditolak"
+  rejected: "Ditolak",
+  cancelled: "Dibatalkan",
 };
 
 const PAYMENT_STATUS_OPTIONS = {

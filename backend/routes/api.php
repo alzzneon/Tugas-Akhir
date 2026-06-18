@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\VehicleTypeController;
 use App\Http\Controllers\Api\Admin\VehicleBrandController;
 use App\Http\Controllers\Api\Admin\TransmissionController;
+use App\Http\Controllers\Api\Admin\VehicleServiceController;
 use App\Http\Controllers\Api\Admin\RentalStatusController;
 use App\Http\Controllers\Api\Admin\PaymentStatusController;
 use App\Http\Controllers\Api\Admin\VehicleController;
@@ -73,10 +74,14 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::patch('/rentals/{id}/approve', [AdminRentalController::class, 'approve']);
     Route::patch('/rentals/{id}/reject', [AdminRentalController::class, 'reject']);
     Route::patch('/rentals/{id}/mark-ongoing', [AdminRentalController::class, 'markOngoing']);
-    Route::patch('/rentals/{rental}/mark-returned',[AdminRentalController::class, 'markReturned']);
+    Route::patch('/rentals/{rental}/mark-returned', [AdminRentalController::class, 'markReturned']);
     Route::patch('/rentals/{id}/update-status-payment', [AdminRentalController::class, 'updateStatusPayment']);
     Route::patch('/rentals/{id}/refund', [AdminRentalController::class, 'refund']);
     Route::patch('/rentals/{id}/inspect', [AdminRentalController::class, 'inspectVehicle']);
+
+    Route::get('/maintenance-types', [VehicleServiceController::class, 'maintenanceTypes']);
+    Route::apiResource('vehicle-services', VehicleServiceController::class)
+        ->only(['index', 'store', 'show', 'update', 'destroy']);
 
     Route::get('/company-profile', [CompanyProfileController::class, 'index']);
     Route::put('/company-profile', [CompanyProfileController::class, 'update']);

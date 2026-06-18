@@ -12,6 +12,7 @@ import {
   Car,
   Users,
   Settings,
+  Wrench,
 } from "lucide-react";
 
 function cx(...cls) {
@@ -118,7 +119,7 @@ export default function AdminLayout() {
   const isMasterActive = pathname.startsWith("/admin/master/");
   const isKendaraanActive = pathname.startsWith("/admin/kendaraan");
   const isRentActive = pathname.startsWith("/admin/penyewaan");
-
+  const isMaintenanceActive = pathname.startsWith("/admin/maintenance");
   const [openMaster, setOpenMaster] = useState(true);
   const [openKendaraan, setOpenKendaraan] = useState(true);
   const [openRent, setOpenRent] = useState(true);
@@ -388,6 +389,13 @@ export default function AdminLayout() {
               <SubItem to="/admin/penyewaan/motor" label="Penyewaan Motor" />
             </div>
           )}
+
+          <SideItem
+            to="/admin/maintenance"
+            icon={Wrench}
+            label="Maintenance Kendaraan"
+            collapsed={collapsed}
+          />
 
           <SectionLabel label="Sistem" collapsed={collapsed} />
 

@@ -461,8 +461,7 @@ class RentalController extends ResourceController
         );
     }
 
-
-    public function updateStatusPayment(Request $request, Rental $rental)
+    public function updateStatusPayment(Request $request, int $id)
     {
         $validated = $request->validate([
             'status' => ['nullable', 'string'],
@@ -473,25 +472,31 @@ class RentalController extends ResourceController
             'notes' => ['nullable', 'string'],
         ]);
 
+        $rental = Rental::findOrFail($id);
+
         $current = $rental->status;
         $next = $validated['status'] ?? $current;
 
+        if (!$current) {
+            return response()->json([
+                'message' => 'Status rental tidak ditemukan.'
+            ], 422);
+        }
 
-if (
-    $next !== $current &&
-    !$this->canTransitionStatus($current, $next)
-) {
-    return response()->json([
-        'message' => 'Perubahan status tidak valid.'
-    ], 422);
-}
+        if (
+            $next !== $current &&
+            !$this->canTransitionStatus($current, $next)
+        ) {
+            return response()->json([
+                'message' => 'Perubahan status tidak valid.'
+            ], 422);
+        }
 
         DB::transaction(function () use (
             $validated,
             $rental,
             $next
         ) {
-
             $rental->update([
                 'status' => $next,
                 'payment_status' =>
@@ -503,12 +508,10 @@ if (
                     ?? $rental->notes,
             ]);
 
-            // simpan payment kalau ada nominal
             if (
                 !empty($validated['amount']) &&
                 $validated['amount'] > 0
             ) {
-
                 $rental->payments()->create([
                     'amount' =>
                         $validated['amount'],
@@ -1176,9 +1179,6 @@ if (
         ];
     }
 
-
-   
-
 public function inspectVehicle(Request $request, int $id)
 {
     $validated = $request->validate([
@@ -1234,16 +1234,35 @@ public function inspectVehicle(Request $request, int $id)
         // KERUSAKAN
         if ($validated['has_damage']) {
 
+            $maintenanceTypeId = DB::table('mt_maintenance_types')
+                ->where('name', 'Perbaikan Kerusakan')
+                ->value('id');
+
             foreach (($validated['damages'] ?? []) as $damage) {
 
                 $repairCost = (float)
                     $damage['repair_cost'];
 
-                $rental->damages()->create([
+                $damageRow = $rental->damages()->create([
                     'vehicle_id' => $rental->vehicle_id,
                     'description' => $damage['description'],
                     'repair_cost' => $repairCost,
                     'status' => 'pending',
+                ]);
+
+                DB::table('vehicle_services')->insert([
+                    'vehicle_id' => $rental->vehicle_id,
+                    'rental_id' => $rental->id,
+                    'damage_id' => $damageRow->id,
+                    'maintenance_type_id' => $maintenanceTypeId,
+                    'service_date' => now()->toDateString(),
+                    'service_type' => 'Perbaikan Kerusakan',
+                    'condition_status' => 'damaged',
+                    'description' => $damage['description'],
+                    'cost' => $repairCost,
+                    'status' => 'planned',
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
 
                 $totalExtra += $repairCost;
@@ -1272,7 +1291,6 @@ public function inspectVehicle(Request $request, int $id)
         'Inspeksi kendaraan berhasil.'
     );
 }
-
 
     public function pay(Request $request, int $id)
     {
