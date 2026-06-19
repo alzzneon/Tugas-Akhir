@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import DataTable from "../../Components/Admin/DataTable";
+import Modal from "../../Components/Admin/Modal";
 
 const conditionLabels = {
   good: "Baik",
@@ -43,6 +45,19 @@ function normalizeData(response) {
       : [];
 }
 
+function inputClass() {
+  return "w-full border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-800 outline-none transition focus:border-[#C8102E]";
+}
+
+function FieldLabel({ children, required = false }) {
+  return (
+    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+      {children}
+      {required && <span className="text-[#C8102E]"> *</span>}
+    </label>
+  );
+}
+
 export default function VehicleMaintenance() {
   const token = localStorage.getItem("token");
 
@@ -64,6 +79,9 @@ export default function VehicleMaintenance() {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("");
 
   async function fetchData() {
     try {
@@ -80,7 +98,7 @@ export default function VehicleMaintenance() {
       setTypes(normalizeData(typesRes));
     } catch (err) {
       console.error("Gagal memuat data maintenance:", err);
-      alert("Gagal memuat data maintenance.");
+      setMessage("Gagal memuat data maintenance.");
     } finally {
       setLoading(false);
     }
@@ -95,11 +113,23 @@ export default function VehicleMaintenance() {
     setEditingId(null);
   }
 
+  function openCreate() {
+    resetForm();
+    setOpen(true);
+  }
+
+  function closeModal() {
+    setOpen(false);
+    resetForm();
+  }
+
   function handleEdit(item) {
     setEditingId(item.id);
+
     setForm({
-      vehicle_id: item.vehicle?.id || "",
-      maintenance_type_id: item.maintenance_type?.id || "",
+      vehicle_id: item.vehicle?.id || item.vehicle_id || "",
+      maintenance_type_id:
+        item.maintenance_type?.id || item.maintenance_type_id || "",
       service_date: item.service_date || "",
       condition_status: item.condition_status || "good",
       description: item.description || "",
@@ -109,6 +139,15 @@ export default function VehicleMaintenance() {
       status: item.status || "planned",
       next_service_date: item.next_service_date || "",
     });
+
+    setOpen(true);
+  }
+
+  function updateForm(key, value) {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   }
 
   async function handleSubmit(e) {
@@ -129,286 +168,300 @@ export default function VehicleMaintenance() {
 
     try {
       setSaving(true);
+      setMessage("");
 
       if (editingId) {
         await api.put(`/admin/vehicle-services/${editingId}`, payload);
+        setMessage("Data maintenance berhasil diperbarui.");
       } else {
         await api.post("/admin/vehicle-services", payload);
+        setMessage("Data maintenance berhasil ditambahkan.");
       }
 
-      resetForm();
+      closeModal();
       await fetchData();
-      alert(editingId ? "Data maintenance berhasil diperbarui." : "Data maintenance berhasil ditambahkan.");
     } catch (err) {
       console.error("Gagal menyimpan maintenance:", err);
-      alert("Gagal menyimpan data maintenance.");
+      setMessage("Gagal menyimpan data maintenance.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(item) {
     if (!confirm("Hapus data maintenance ini?")) return;
 
     try {
-      await api.delete(`/admin/vehicle-services/${id}`);
+      setMessage("");
+
+      await api.delete(`/admin/vehicle-services/${item.id}`);
+
       await fetchData();
-      alert("Data maintenance berhasil dihapus.");
+      setMessage("Data maintenance berhasil dihapus.");
     } catch (err) {
       console.error("Gagal menghapus maintenance:", err);
-      alert("Gagal menghapus data maintenance.");
+      setMessage("Gagal menghapus data maintenance.");
     }
   }
 
+  const filteredServices = services.filter((item) => {
+    const keyword = search.trim().toLowerCase();
+
+    const vehicleName = item.vehicle?.name || "";
+    const plateNumber = item.vehicle?.plate_number || "";
+    const maintenanceType =
+      item.maintenance_type?.name ||
+      item.service_type ||
+      "";
+    const description = item.description || "";
+
+    return (
+      !keyword ||
+      [vehicleName, plateNumber, maintenanceType, description]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
+    );
+  });
+
   return (
-    <div style={{ padding: "28px 32px" }}>
-      <div
-        style={{
-          borderLeft: "4px solid #C8102E",
-          paddingLeft: "14px",
-          marginBottom: "22px",
-        }}
-      >
-        <h1 style={{ fontSize: "20px", fontWeight: "800", color: "#111827", margin: 0 }}>
-          MAINTENANCE KENDARAAN
-        </h1>
-        <p style={{ fontSize: "13px", color: "#9CA3AF", marginTop: "6px" }}>
-          Kelola riwayat pengecekan, service, dan perbaikan kendaraan.
-        </p>
-      </div>
-
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          backgroundColor: "#FFFFFF",
-          borderTop: "3px solid #C8102E",
-          border: "1px solid #E5E7EB",
-          padding: "18px",
-          marginBottom: "22px",
-        }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: "14px",
-          }}
-        >
-          <select
-            value={form.vehicle_id}
-            onChange={(e) => setForm({ ...form, vehicle_id: e.target.value })}
-            required
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          >
-            <option value="">Pilih kendaraan</option>
-            {vehicles.map((vehicle) => (
-              <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.name} - {vehicle.plate_number}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={form.maintenance_type_id}
-            onChange={(e) => setForm({ ...form, maintenance_type_id: e.target.value })}
-            required
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          >
-            <option value="">Pilih jenis maintenance</option>
-            {types.map((type) => (
-              <option key={type.id} value={type.id}>
-                {type.name}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="date"
-            value={form.service_date}
-            onChange={(e) => setForm({ ...form, service_date: e.target.value })}
-            required
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          />
-
-          <select
-            value={form.condition_status}
-            onChange={(e) => setForm({ ...form, condition_status: e.target.value })}
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          >
-            <option value="good">Baik</option>
-            <option value="damaged">Ada Kerusakan</option>
-          </select>
-
-          <input
-            type="number"
-            value={form.cost}
-            onChange={(e) => setForm({ ...form, cost: e.target.value })}
-            placeholder="Biaya"
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          />
-
-          <select
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          >
-            <option value="planned">Direncanakan</option>
-            <option value="in_progress">Sedang Dikerjakan</option>
-            <option value="completed">Selesai</option>
-            <option value="cancelled">Dibatalkan</option>
-          </select>
-
-          <input
-            type="datetime-local"
-            value={form.started_at}
-            onChange={(e) => setForm({ ...form, started_at: e.target.value })}
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          />
-
-          <input
-            type="datetime-local"
-            value={form.completed_at}
-            onChange={(e) => setForm({ ...form, completed_at: e.target.value })}
-            style={{ padding: "10px", border: "1px solid #D1D5DB" }}
-          />
-
-          <textarea
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Catatan maintenance"
-            rows={3}
-            style={{
-              gridColumn: "1 / -1",
-              padding: "10px",
-              border: "1px solid #D1D5DB",
-              resize: "vertical",
-            }}
-          />
+    <div className="space-y-4">
+      {message && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {message}
         </div>
+      )}
 
-        <div style={{ marginTop: "14px", display: "flex", gap: "10px" }}>
-          <button
-            type="submit"
-            disabled={saving}
-            style={{
-              backgroundColor: "#C8102E",
-              color: "#FFFFFF",
-              border: "none",
-              padding: "10px 16px",
-              fontWeight: "700",
-              cursor: "pointer",
-            }}
-          >
-            {saving ? "Menyimpan..." : editingId ? "Simpan Perubahan" : "+ Tambah Maintenance"}
-          </button>
+      <DataTable
+        title="Maintenance Kendaraan"
+        subtitle="Kelola riwayat pengecekan, service, dan perbaikan kendaraan"
+        rows={filteredServices}
+        loading={loading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        onCreate={openCreate}
+        createLabel="+ Tambah"
+        clickableKey="vehicle"
+        onClickCell={handleEdit}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        columns={[
+          {
+            key: "service_date",
+            label: "Tanggal",
+          },
+          {
+            key: "vehicle",
+            label: "Kendaraan",
+          },
+          {
+            key: "maintenance_type",
+            label: "Jenis",
+          },
+          {
+            key: "condition_status",
+            label: "Kondisi",
+          },
+          {
+            key: "description",
+            label: "Catatan",
+          },
+          {
+            key: "cost",
+            label: "Biaya",
+          },
+          {
+            key: "status",
+            label: "Status",
+          },
+        ]}
+        renderCell={({ row, col }) => {
+          if (col.key === "vehicle") {
+            return `${row.vehicle?.name || "-"} - ${
+              row.vehicle?.plate_number || "-"
+            }`;
+          }
 
-          {editingId && (
+          if (col.key === "maintenance_type") {
+            return row.maintenance_type?.name || row.service_type || "-";
+          }
+
+          if (col.key === "condition_status") {
+            return conditionLabels[row.condition_status] || "-";
+          }
+
+          if (col.key === "cost") {
+            return formatRupiah(row.cost);
+          }
+
+          if (col.key === "status") {
+            return statusLabels[row.status] || "-";
+          }
+
+          return row[col.key] || "-";
+        }}
+      />
+
+      <Modal
+        open={open}
+        size="lg"
+        title={
+          editingId
+            ? "Edit Maintenance Kendaraan"
+            : "Tambah Maintenance Kendaraan"
+        }
+        onClose={closeModal}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <FieldLabel required>Kendaraan</FieldLabel>
+
+              <select
+                value={form.vehicle_id}
+                onChange={(e) => updateForm("vehicle_id", e.target.value)}
+                required
+                className={inputClass()}
+              >
+                <option value="">Pilih kendaraan</option>
+
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.name} - {vehicle.plate_number}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <FieldLabel required>Jenis Maintenance</FieldLabel>
+
+              <select
+                value={form.maintenance_type_id}
+                onChange={(e) =>
+                  updateForm("maintenance_type_id", e.target.value)
+                }
+                required
+                className={inputClass()}
+              >
+                <option value="">Pilih jenis maintenance</option>
+
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <FieldLabel required>Tanggal Maintenance</FieldLabel>
+
+              <input
+                type="date"
+                value={form.service_date}
+                onChange={(e) => updateForm("service_date", e.target.value)}
+                required
+                className={inputClass()}
+              />
+            </div>
+
+            <div>
+              <FieldLabel>Kondisi</FieldLabel>
+
+              <select
+                value={form.condition_status}
+                onChange={(e) =>
+                  updateForm("condition_status", e.target.value)
+                }
+                className={inputClass()}
+              >
+                <option value="good">Baik</option>
+                <option value="damaged">Ada Kerusakan</option>
+              </select>
+            </div>
+
+            <div>
+              <FieldLabel>Biaya</FieldLabel>
+
+              <input
+                type="number"
+                value={form.cost}
+                onChange={(e) => updateForm("cost", e.target.value)}
+                placeholder="Biaya"
+                className={inputClass()}
+              />
+            </div>
+
+            <div>
+              <FieldLabel>Status</FieldLabel>
+
+              <select
+                value={form.status}
+                onChange={(e) => updateForm("status", e.target.value)}
+                className={inputClass()}
+              >
+                <option value="planned">Direncanakan</option>
+                <option value="in_progress">Sedang Dikerjakan</option>
+                <option value="completed">Selesai</option>
+                <option value="cancelled">Dibatalkan</option>
+              </select>
+            </div>
+
+            <div>
+              <FieldLabel>Mulai Perbaikan</FieldLabel>
+
+              <input
+                type="datetime-local"
+                value={form.started_at}
+                onChange={(e) => updateForm("started_at", e.target.value)}
+                className={inputClass()}
+              />
+            </div>
+
+            <div>
+              <FieldLabel>Selesai Perbaikan</FieldLabel>
+
+              <input
+                type="datetime-local"
+                value={form.completed_at}
+                onChange={(e) => updateForm("completed_at", e.target.value)}
+                className={inputClass()}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <FieldLabel>Catatan Maintenance</FieldLabel>
+
+              <textarea
+                value={form.description}
+                onChange={(e) => updateForm("description", e.target.value)}
+                placeholder="Catatan maintenance"
+                rows={3}
+                className={inputClass()}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
             <button
               type="button"
-              onClick={resetForm}
-              style={{
-                backgroundColor: "#FFFFFF",
-                color: "#374151",
-                border: "1px solid #D1D5DB",
-                padding: "10px 16px",
-                fontWeight: "700",
-                cursor: "pointer",
-              }}
+              onClick={closeModal}
+              className="border border-gray-200 px-4 py-2 text-sm font-semibold"
             >
-              Batal Edit
+              Batal
             </button>
-          )}
-        </div>
-      </form>
 
-      <div
-        style={{
-          backgroundColor: "#FFFFFF",
-          borderTop: "3px solid #C8102E",
-          border: "1px solid #E5E7EB",
-          overflowX: "auto",
-        }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "980px" }}>
-          <thead>
-            <tr style={{ backgroundColor: "#F8F8F8", borderBottom: "2px solid #E5E7EB" }}>
-              {["NO", "TANGGAL", "KENDARAAN", "JENIS", "KONDISI", "CATATAN", "BIAYA", "STATUS", "AKSI"].map((head) => (
-                <th
-                  key={head}
-                  style={{
-                    padding: "12px",
-                    textAlign: "left",
-                    fontSize: "11px",
-                    letterSpacing: "0.14em",
-                    color: "#777777",
-                  }}
-                >
-                  {head}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={9} style={{ padding: "18px", textAlign: "center", color: "#777777" }}>
-                  Memuat data...
-                </td>
-              </tr>
-            ) : services.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ padding: "18px", textAlign: "center", color: "#777777" }}>
-                  Belum ada data maintenance.
-                </td>
-              </tr>
-            ) : (
-              services.map((item, index) => (
-                <tr key={item.id} style={{ borderBottom: "1px solid #EEEEEE" }}>
-                  <td style={{ padding: "12px" }}>{index + 1}</td>
-                  <td style={{ padding: "12px" }}>{item.service_date}</td>
-                  <td style={{ padding: "12px" }}>
-                    {item.vehicle?.name} - {item.vehicle?.plate_number}
-                  </td>
-                  <td style={{ padding: "12px" }}>{item.maintenance_type?.name || item.service_type}</td>
-                  <td style={{ padding: "12px" }}>{conditionLabels[item.condition_status]}</td>
-                  <td style={{ padding: "12px", maxWidth: "240px" }}>{item.description || "-"}</td>
-                  <td style={{ padding: "12px" }}>{formatRupiah(item.cost)}</td>
-                  <td style={{ padding: "12px" }}>{statusLabels[item.status]}</td>
-                  <td style={{ padding: "12px", display: "flex", gap: "8px" }}>
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(item)}
-                      style={{
-                        border: "1px solid #D1D5DB",
-                        backgroundColor: "#FFFFFF",
-                        padding: "7px 12px",
-                        fontWeight: "700",
-                        cursor: "pointer",
-                      }}
-                    >
-                      EDIT
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item.id)}
-                      style={{
-                        border: "1px solid #FCA5A5",
-                        backgroundColor: "#FFFFFF",
-                        color: "#C8102E",
-                        padding: "7px 12px",
-                        fontWeight: "700",
-                        cursor: "pointer",
-                      }}
-                    >
-                      HAPUS
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {saving ? "Menyimpan..." : "Simpan"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
