@@ -331,6 +331,7 @@ export default function AdminLayout() {
               <SubItem to="/admin/master/vehicle-types" label="Jenis Kendaraan" />
               <SubItem to="/admin/master/vehicle-brands" label="Merek Kendaraan" />
               <SubItem to="/admin/master/transmissions" label="Transmisi" />
+              <SubItem to="/admin/master/maintenance-types" label="Jenis Maintenance" />
             </div>
           )}
 

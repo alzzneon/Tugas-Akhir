@@ -5,7 +5,7 @@ import LoginAdmin from "./pages/Admin/LoginAdmin";
 import Dashboard from "./pages/Admin/DashboardAdmin";
 import Kendaraan from "./pages/Admin/Kendaraan";
 import AdminLayout from "./Layouts/AdminLayout";
-
+import MaintenanceTypes from "./pages/Admin/Master/MaintenanceTypes";
 import VehicleTypes from "./pages/Admin/Master/VehicleTypes";
 import VehicleBrands from "./pages/Admin/Master/VehicleBrands";
 import Transmissions from "./pages/Admin/Master/Transmissions";
@@ -180,6 +180,7 @@ export default function App() {
         <Route path="master/transmissions" element={<Transmissions />} />
         <Route path="master/rental-statuses" element={<RentalStatuses />} />
         <Route path="master/payment-statuses" element={<PaymentStatuses />} />
+        <Route path="master/maintenance-types" element={<MaintenanceTypes />} />
 
         <Route path="kendaraan/mobil" element={<Cars />} />
         <Route path="kendaraan/motor" element={<Motorcycles />} />

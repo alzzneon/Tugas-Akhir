@@ -8,7 +8,7 @@ use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\PublicVehicleController;
 use App\Http\Controllers\Api\PublicRentalController;
 use App\Http\Controllers\Api\Admin\DashboardController;
-
+use App\Http\Controllers\Api\Admin\MaintenanceTypeController;
 use App\Http\Controllers\Api\Admin\VehicleTypeController;
 use App\Http\Controllers\Api\Admin\VehicleBrandController;
 use App\Http\Controllers\Api\Admin\TransmissionController;
@@ -61,6 +61,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
             ->only(['index', 'store', 'update', 'destroy']);
 
         Route::apiResource('vehicles', VehicleController::class)
+            ->only(['index', 'store', 'update', 'destroy']);
+
+        Route::apiResource('maintenance-types', MaintenanceTypeController::class)
             ->only(['index', 'store', 'update', 'destroy']);
     });
 
