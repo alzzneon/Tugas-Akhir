@@ -187,6 +187,9 @@ export default function RentalsList({ type }) {
   );
 
   const [rows, setRows] = useState([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
 
   const [loading, setLoading] = useState(true);
 
@@ -609,6 +612,38 @@ async function handleRefund(id) {
   }
 }
 
+  const filteredRows = rows.filter((row) => {
+    const keyword = search.trim().toLowerCase();
+
+    const customerName =
+      row.user?.full_name ||
+      row.manual_customer?.customer_name ||
+      "";
+
+    const customerPhone =
+      row.user?.phone_number ||
+      row.manual_customer?.phone_number ||
+      "";
+
+    const vehicleName = row.vehicle?.name || "";
+    const bookingCode = row.booking_code || "";
+
+    const matchesSearch =
+      !keyword ||
+      [bookingCode, customerName, customerPhone, vehicleName]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword);
+
+    const matchesStatus =
+      !statusFilter || row.status === statusFilter;
+
+    const matchesPayment =
+      !paymentStatusFilter || row.payment_status === paymentStatusFilter;
+
+    return matchesSearch && matchesStatus && matchesPayment;
+  });
+
   return (
     <div className="space-y-4">
 
@@ -618,125 +653,170 @@ async function handleRefund(id) {
         </div>
       )}
 
-      <DataTable
-        title="Daftar Rental"
-        subtitle="Kelola rental kendaraan"
-        rows={rows}
-        loading={loading}
-        showActions
-        columns={[
-          {
-            key: "booking_code",
-            label: "Kode",
-          },
+  <DataTable
+    title="Daftar Rental"
+    subtitle="Kelola rental kendaraan"
+    rows={filteredRows}
+    loading={loading}
+    searchValue={search}
+    onSearchChange={setSearch}
+    showActions
+    headerRight={
+    <div className="flex flex-wrap items-center gap-2">
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="border border-gray-300 px-3 py-2 text-sm"
+      >
+        <option value="">Semua Status Rental</option>
 
-          {
-            key: "customer",
-            label: "Penyewa",
-          },
+        {Object.keys(RENTAL_STATUS_OPTIONS).map((key) => (
+          <option key={key} value={key}>
+            {RENTAL_STATUS_OPTIONS[key]}
+          </option>
+        ))}
+      </select>
 
-          {
-            key: "vehicle",
-            label: "Kendaraan",
-          },
+      <select
+        value={paymentStatusFilter}
+        onChange={(e) => setPaymentStatusFilter(e.target.value)}
+        className="border border-gray-300 px-3 py-2 text-sm"
+      >
+        <option value="">Semua Pembayaran</option>
 
-          {
-            key: "total_price",
-            label: "Total",
-          },
+        {Object.keys(PAYMENT_STATUS_OPTIONS).map((key) => (
+          <option key={key} value={key}>
+            {PAYMENT_STATUS_OPTIONS[key]}
+          </option>
+        ))}
+      </select>
 
-          {
-            key: "status",
-            label: "Status",
-          },
-
-          {
-            key: "payment_status",
-            label: "Pembayaran",
-          },
-        ]}
-
-        renderCell={({ row, col }) => {
-
-          if (col.key === "customer") {
-            return (
-              row.user?.full_name ||
-              row.manual_customer
-                ?.customer_name ||
-              "-"
-            );
-          }
-
-          if (col.key === "vehicle") {
-            return row.vehicle?.name || "-";
-          }
-
-          if (col.key === "total_price") {
-            return formatCurrency(
-              row.total_price
-            );
-          }
-
-          if (col.key === "status") {
-            return (
-              <Badge
-                color={getStatusColor(
-                  row.status
-                )}
-              >
-                {getRentalStatusLabel(
-                  row.status
-                )}
-              </Badge>
-            );
-          }
-
-          if (
-            col.key === "payment_status"
-          ) {
-            return (
-              <Badge
-                color={getPaymentStatusColor(
-                  row.payment_status
-                )}
-              >
-                {getPaymentStatusLabel(
-                  row.payment_status
-                )}
-              </Badge>
-            );
-          }
-
-          return row[col.key];
+      <button
+        type="button"
+        onClick={() => {
+          setSearch("");
+          setStatusFilter("");
+          setPaymentStatusFilter("");
         }}
+        className="border border-gray-300 px-3 py-2 text-sm font-semibold"
+      >
+        Reset
+      </button>
+    </div>
+  }
+          columns={[
+            {
+              key: "booking_code",
+              label: "Kode",
+            },
 
-actionsRender={({ row }) => (
-  <div className="flex gap-2">
+            {
+              key: "customer",
+              label: "Penyewa",
+            },
 
-    <button
-      onClick={() =>
-        openEditModal(row)
-      }
-      className="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white"
-    >
-      Edit
-    </button>
+            {
+              key: "vehicle",
+              label: "Kendaraan",
+            },
 
-    {row.status === "approved" &&
-      row.payment_status === "paid" && (
-        <button
-          onClick={() =>
-            handleRefund(row.id)
-          }
-          className="rounded-md bg-red-600 px-3 py-1 text-xs text-white"
-        >
-          Refund
-        </button>
-      )}
+            {
+              key: "total_price",
+              label: "Total",
+            },
 
-  </div>
-)}
-        
+            {
+              key: "status",
+              label: "Status",
+            },
+
+            {
+              key: "payment_status",
+              label: "Pembayaran",
+            },
+          ]}
+
+          renderCell={({ row, col }) => {
+
+            if (col.key === "customer") {
+              return (
+                row.user?.full_name ||
+                row.manual_customer
+                  ?.customer_name ||
+                "-"
+              );
+            }
+
+            if (col.key === "vehicle") {
+              return row.vehicle?.name || "-";
+            }
+
+            if (col.key === "total_price") {
+              return formatCurrency(
+                row.total_price
+              );
+            }
+
+            if (col.key === "status") {
+              return (
+                <Badge
+                  color={getStatusColor(
+                    row.status
+                  )}
+                >
+                  {getRentalStatusLabel(
+                    row.status
+                  )}
+                </Badge>
+              );
+            }
+
+            if (
+              col.key === "payment_status"
+            ) {
+              return (
+                <Badge
+                  color={getPaymentStatusColor(
+                    row.payment_status
+                  )}
+                >
+                  {getPaymentStatusLabel(
+                    row.payment_status
+                  )}
+                </Badge>
+              );
+            }
+
+            return row[col.key];
+          }}
+
+  actionsRender={({ row }) => (
+    <div className="flex gap-2">
+
+      <button
+        onClick={() =>
+          openEditModal(row)
+        }
+        className="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white"
+      >
+        Edit
+      </button>
+
+      {row.status === "approved" &&
+        row.payment_status === "paid" && (
+          <button
+            onClick={() =>
+              handleRefund(row.id)
+            }
+            className="rounded-md bg-red-600 px-3 py-1 text-xs text-white"
+          >
+            Refund
+          </button>
+        )}
+
+    </div>
+  )}
+          
       />
 
       <Modal
