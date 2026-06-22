@@ -43,7 +43,9 @@ function getStatusColor(s) {
 
     case "ongoing":
     case "overdue":
+    case "inspection":
     case "waiting_payment":
+    case "repair_process":
       return "indigo";
 
     default:
@@ -57,6 +59,7 @@ function getPaymentStatusColor(s) {
       return "green";
 
     case "refund":
+    case "refunded":
       return "blue";
 
     case "failed":
@@ -95,6 +98,7 @@ function getPaymentStatusLabel(s) {
       unpaid: "Belum Bayar",
       paid: "Sudah Bayar",
       refund: "Refund",
+      refunded: "Refunded",
       failed: "Gagal",
       expired: "Kedaluwarsa",
     }[String(s || "").toLowerCase()] || s
@@ -105,11 +109,12 @@ function formatCurrency(v) {
   return `Rp ${Number(v || 0).toLocaleString("id-ID")}`;
 }
 
-// Fungsi pembantu untuk memformat tampilan Tanggal agar rapi di Modal Admin
 function formatDate(dateString) {
   if (!dateString) return "-";
+
   try {
     const date = new Date(dateString);
+
     return date.toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "short",
@@ -135,7 +140,6 @@ function FieldLabel({ children }) {
   );
 }
 
-// Kamus Translasi untuk Opsi Dropdown Select Status di Dalam Modal
 const RENTAL_STATUS_OPTIONS = {
   pending: "Menunggu Persetujuan",
   approved: "Disetujui",
@@ -151,11 +155,12 @@ const RENTAL_STATUS_OPTIONS = {
 };
 
 const PAYMENT_STATUS_OPTIONS = {
-  unpaid: "Belum Bayar (Unpaid)",
-  paid: "Sudah Bayar (Paid)",
+  unpaid: "Belum Bayar",
+  paid: "Sudah Bayar",
   refund: "Refund",
-  failed: "Gagal (Failed)",
-  expired: "Kedaluwarsa (Expired)"
+  refunded: "Refunded",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
 };
 
 function SectionDivider({ label }) {
@@ -170,7 +175,6 @@ function SectionDivider({ label }) {
   );
 }
 
-// export default function RentalsList() {
 export default function RentalsList({ type }) {
   const token = localStorage.getItem("token");
 
@@ -190,39 +194,21 @@ export default function RentalsList({ type }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
-
   const [loading, setLoading] = useState(true);
-
   const [msg, setMsg] = useState("");
-
   const [openEdit, setOpenEdit] = useState(false);
-
   const [selectedRow, setSelectedRow] = useState(null);
-
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [editForm, setEditForm] = useState({
     status: "",
     payment_status: "",
-
-    payment_method: "transfer",
-
-    payment_type: "full",
-
-    amount: "",
-
     notes: "",
-
     actual_return_at: "",
-
     has_late_fine: false,
-
     late_fine_amount: "",
-
     damages: [],
-
     damage_name: "",
-
     damage_cost: "",
   });
 
@@ -231,20 +217,27 @@ export default function RentalsList({ type }) {
       setLoading(true);
 
       const res = await api.get("/admin/rentals");
-
       const rentals = res.data?.data || [];
 
-      const filtered = rentals.filter((item) => {
-        const vehicleType =
-          item.vehicle?.vehicle_type?.code;
+      if (!type) {
+        setRows(rentals);
+        return;
+      }
 
-        return (
-          vehicleType?.toUpperCase() ===
-          type.toUpperCase()
-        );
+      const filtered = rentals.filter((item) => {
+        const vehicleType = item.vehicle?.vehicle_type?.code;
+
+        return vehicleType?.toUpperCase() === type.toUpperCase();
       });
 
       setRows(filtered);
+    } catch (err) {
+      console.log(err);
+
+      setMsg(
+        err.response?.data?.message ||
+          "Gagal memuat data rental."
+      );
     } finally {
       setLoading(false);
     }
@@ -259,30 +252,24 @@ export default function RentalsList({ type }) {
 
     setEditForm((prev) => ({
       ...prev,
-
-      [name]:
-        type === "checkbox"
-          ? checked
-          : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   }
 
   function addDamageItem() {
-    if (!editForm.damage_name || !editForm.damage_cost)
+    if (!editForm.damage_name || !editForm.damage_cost) {
       return;
+    }
 
     setEditForm((prev) => ({
       ...prev,
-
       damages: [
         ...prev.damages,
-
         {
           description: prev.damage_name,
           repair_cost: Number(prev.damage_cost),
         },
       ],
-
       damage_name: "",
       damage_cost: "",
     }));
@@ -291,349 +278,271 @@ export default function RentalsList({ type }) {
   function removeDamage(index) {
     setEditForm((prev) => ({
       ...prev,
-
-      damages: prev.damages.filter(
-        (_, i) => i !== index
-      ),
+      damages: prev.damages.filter((_, i) => i !== index),
     }));
   }
 
-function openEditModal(row) {
-  setSelectedRow(row);
+  function openEditModal(row) {
+    setSelectedRow(row);
 
-  const existingDamages = Array.isArray(row.damages)
-    ? row.damages.map((item) => ({
-        description: item.description || "",
-        repair_cost: Number(item.repair_cost || 0),
-      }))
-    : [];
+    const existingDamages = Array.isArray(row.damages)
+      ? row.damages.map((item) => ({
+          description: item.description || "",
+          repair_cost: Number(item.repair_cost || 0),
+        }))
+      : [];
 
-  const existingLateFineAmount = Array.isArray(row.late_fines)
-    ? row.late_fines.reduce((total, item) => {
-        return total + Number(item.total_fine || 0);
-      }, 0)
-    : 0;
+    const existingLateFineAmount = Array.isArray(row.late_fines)
+      ? row.late_fines.reduce((total, item) => {
+          return total + Number(item.total_fine || 0);
+        }, 0)
+      : 0;
 
-  setEditForm({
-    status: row.status || "",
+    setEditForm({
+      status: row.status || "",
+      payment_status: row.payment_status || "",
+      notes: row.notes || "",
+      actual_return_at: row.actual_return_at || "",
+      has_late_fine: Boolean(
+        row.has_late_fine || existingLateFineAmount > 0
+      ),
+      late_fine_amount:
+        existingLateFineAmount > 0 ? existingLateFineAmount : "",
+      damages: existingDamages,
+      damage_name: "",
+      damage_cost: "",
+    });
 
-    payment_status: row.payment_status || "",
-
-    payment_method: "transfer",
-
-    payment_type: "full",
-
-    amount: "",
-
-    notes: row.notes || "",
-
-    actual_return_at: row.actual_return_at || "",
-
-    has_late_fine: Boolean(row.has_late_fine || existingLateFineAmount > 0),
-
-    late_fine_amount: existingLateFineAmount > 0 ? existingLateFineAmount : "",
-
-    damages: existingDamages,
-
-    damage_name: "",
-
-    damage_cost: "",
-  });
-
-  setOpenEdit(true);
-}
+    setOpenEdit(true);
+  }
 
   function closeEditModal() {
     setOpenEdit(false);
-
     setSelectedRow(null);
   }
 
-  async function updateStatusPayment() {
-    await api.patch(
-      `/admin/rentals/${selectedRow.id}/update-status-payment`,
-      {
-        status: editForm.status,
+  async function handleSaveEdit(e) {
+    e.preventDefault();
 
-        payment_status:
-          editForm.payment_status,
+    try {
+      setSavingEdit(true);
+      setMsg("");
 
-        payment_method:
-          editForm.payment_method,
+      const currentStatus = selectedRow.status;
+      const nextStatus = editForm.status;
 
-        payment_type:
-          editForm.payment_type,
+      const hasPendingDamageInput =
+        Boolean(editForm.damage_name) ||
+        Boolean(editForm.damage_cost);
 
-        amount: editForm.amount
-          ? Number(editForm.amount)
-          : 0,
+      const hasFineInput =
+        Boolean(editForm.has_late_fine) &&
+        Number(editForm.late_fine_amount || 0) > 0;
 
-        notes: editForm.notes,
+      const hasDamageItems =
+        editForm.damages.length > 0;
+
+      const hasInspectionData =
+        hasFineInput ||
+        hasDamageItems ||
+        hasPendingDamageInput;
+
+      const canRunInspection = [
+        "returned",
+        "inspection",
+        "waiting_payment",
+      ].includes(currentStatus);
+
+      // APPROVE
+      if (
+        currentStatus === "pending" &&
+        nextStatus === "approved"
+      ) {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/approve`
+        );
       }
-    );
+
+      // REJECT
+      else if (nextStatus === "rejected") {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/reject`,
+          {
+            reason:
+              editForm.notes ||
+              "Ditolak admin",
+          }
+        );
+      }
+
+      // ONGOING
+      else if (
+        currentStatus === "approved" &&
+        selectedRow.payment_status === "paid" &&
+        nextStatus === "ongoing"
+      ) {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/mark-ongoing`
+        );
+      }
+
+      // RETURNED
+      else if (
+        ["ongoing", "overdue"].includes(currentStatus) &&
+        nextStatus === "returned"
+      ) {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/mark-returned`,
+          {
+            actual_return_at:
+              editForm.actual_return_at || null,
+          }
+        );
+      }
+
+      // MASUK KE STATUS INSPEKSI SAJA
+      else if (
+        currentStatus === "returned" &&
+        nextStatus === "inspection" &&
+        !hasInspectionData
+      ) {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/update-status-payment`,
+          {
+            status: "inspection",
+            notes: editForm.notes,
+          }
+        );
+      }
+
+      // SIMPAN HASIL INSPEKSI
+      else if (
+        canRunInspection &&
+        (
+          hasInspectionData ||
+          currentStatus === "inspection"
+        )
+      ) {
+        if (hasPendingDamageInput) {
+          setMsg(
+            "Klik + Tambah Kerusakan terlebih dahulu sebelum menyimpan."
+          );
+          setSavingEdit(false);
+          return;
+        }
+
+        if (
+          editForm.has_late_fine &&
+          Number(editForm.late_fine_amount || 0) <= 0
+        ) {
+          setMsg(
+            "Isi nominal denda keterlambatan terlebih dahulu."
+          );
+          setSavingEdit(false);
+          return;
+        }
+
+        const hasFine =
+          Boolean(editForm.has_late_fine) &&
+          Number(editForm.late_fine_amount || 0) > 0;
+
+        const hasDamage =
+          editForm.damages.length > 0;
+
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/inspect`,
+          {
+            has_late_fine: hasFine,
+            late_fine_amount: hasFine
+              ? Number(editForm.late_fine_amount || 0)
+              : 0,
+            has_damage: hasDamage,
+            damages: editForm.damages,
+          }
+        );
+      }
+
+      // PROSES PERBAIKAN
+      else if (
+        currentStatus === "waiting_payment" &&
+        nextStatus === "repair_process"
+      ) {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/update-status-payment`,
+          {
+            status: "repair_process",
+            notes: editForm.notes,
+          }
+        );
+      }
+
+      // FINAL COMPLETED
+      else if (
+        currentStatus === "repair_process" &&
+        nextStatus === "completed"
+      ) {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/update-status-payment`,
+          {
+            status: "completed",
+            notes: editForm.notes,
+          }
+        );
+      }
+
+      // GENERAL UPDATE
+      else {
+        await api.patch(
+          `/admin/rentals/${selectedRow.id}/update-status-payment`,
+          {
+            status: editForm.status,
+            notes: editForm.notes,
+          }
+        );
+      }
+
+      await fetchRentals();
+      closeEditModal();
+    } catch (err) {
+      console.log(err);
+
+      setMsg(
+        err.response?.data?.message ||
+          "Gagal update rental."
+      );
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
-  async function completeRental() {
-    if (
-      editForm.status !== "completed"
-    ) {
-      return;
-    }
+  async function handleRefund(id) {
+    const confirmed = window.confirm(
+      "Yakin ingin melakukan refund rental ini?"
+    );
 
-    await api.post(
-      `/admin/rentals/${selectedRow.id}/complete`,
-      {
-        actual_return_at:
-          editForm.actual_return_at ||
+    if (!confirmed) return;
+
+    try {
+      await api.patch(
+        `/admin/rentals/${id}/refund`
+      );
+
+      alert("Refund berhasil diproses");
+
+      await fetchRentals();
+    } catch (err) {
+      console.log("ERROR REFUND:");
+      console.log(err.response?.data);
+
+      alert(
+        JSON.stringify(
+          err.response?.data,
           null,
-      }
-    );
+          2
+        )
+      );
+    }
   }
-
-async function handleSaveEdit(e) {
-
-  e.preventDefault();
-
-  try {
-
-    setSavingEdit(true);
-
-    setMsg("");
-
-    const currentStatus =
-      selectedRow.status;
-
-    const nextStatus =
-      editForm.status;
-
-    const hasPendingDamageInput =
-      Boolean(editForm.damage_name) ||
-      Boolean(editForm.damage_cost);
-
-    const hasInspectionData =
-      Boolean(editForm.has_late_fine) ||
-      Number(editForm.late_fine_amount || 0) > 0 ||
-      editForm.damages.length > 0 ||
-      hasPendingDamageInput;
-
-    const canRunInspection =
-      ["returned", "inspection", "waiting_payment"].includes(currentStatus);
-
-    // APPROVE
-    if (
-      currentStatus === "pending" &&
-      nextStatus === "approved"
-    ) {
-
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/approve`
-      );
-    }
-
-    // REJECT
-    else if (
-      nextStatus === "rejected"
-    ) {
-
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/reject`,
-        {
-          reason:
-            editForm.notes ||
-            "Ditolak admin",
-        }
-      );
-    }
-
-    // ONGOING
-    else if (
-      selectedRow.status === "approved" &&
-      selectedRow.payment_status === "paid" &&
-      nextStatus === "ongoing"
-    )
-    {
-
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/mark-ongoing`
-      );
-    }
-
-    // RETURNED
-    else if (
-      ["ongoing", "overdue"].includes(currentStatus) &&
-      nextStatus === "returned"
-    ) {
-
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/mark-returned`,
-        {
-          actual_return_at:
-            editForm.actual_return_at || null,
-        }
-      );
-    }
-
-// INSPECTION / CEK KENDARAAN SETELAH DIKEMBALIKAN
-else if (
-  canRunInspection &&
-  (
-    hasInspectionData ||
-    ["returned", "inspection"].includes(currentStatus)
-  )
-) {
-  if (editForm.damage_name || editForm.damage_cost) {
-    setMsg("Klik + Tambah Kerusakan terlebih dahulu sebelum menyimpan.");
-    setSavingEdit(false);
-    return;
-  }
-
-  const hasFine =
-    Boolean(editForm.has_late_fine) &&
-    Number(editForm.late_fine_amount || 0) > 0;
-
-  const hasDamage =
-    editForm.damages.length > 0;
-
-  await api.patch(
-    `/admin/rentals/${selectedRow.id}/inspect`,
-    {
-      has_late_fine: hasFine,
-
-      late_fine_amount: hasFine
-        ? Number(editForm.late_fine_amount || 0)
-        : 0,
-
-      has_damage: hasDamage,
-
-      damages: editForm.damages,
-    }
-  );
-}
-   
-    else if (
-      currentStatus === "waiting_payment" &&
-      nextStatus === "repair_process"
-    ) {
-
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/update-status-payment`,
-        {
-          status:
-            "repair_process",
-
-          payment_status:
-            "paid",
-
-          payment_method:
-            editForm.payment_method,
-
-          payment_type:
-            editForm.payment_type,
-
-          amount:
-            editForm.amount
-              ? Number(editForm.amount)
-              : 0,
-        }
-      );
-    }
-
-    // FINAL COMPLETED
-    else if (
-      currentStatus === "repair_process" &&
-      nextStatus === "completed"
-    ) {
-
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/update-status-payment`,
-        {
-          status:
-            "completed"
-        }
-      );
-    }
-
-    // GENERAL UPDATE
-    else {
-
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/update-status-payment`,
-        {
-          status:
-            editForm.status,
-
-          payment_status:
-            editForm.payment_status,
-
-          payment_method:
-            editForm.payment_method,
-
-          payment_type:
-            editForm.payment_type,
-
-          amount:
-            editForm.amount
-              ? Number(editForm.amount)
-              : 0,
-
-          notes:
-            editForm.notes,
-        }
-      );
-    }
-
-    await fetchRentals();
-
-    closeEditModal();
-
-  } catch (err) {
-
-    console.log(err);
-
-    setMsg(
-      err.response?.data?.message ||
-      "Gagal update rental."
-    );
-
-  } finally {
-
-    setSavingEdit(false);
-  }
-}
-
-
-async function handleRefund(id) {
-  const confirmed = window.confirm(
-    "Yakin ingin melakukan refund rental ini?"
-  );
-
-  if (!confirmed) return;
-
-  try {
-
-    await api.patch(
-      `/admin/rentals/${id}/refund`
-    );
-
-    alert("Refund berhasil diproses");
-
-    await fetchRentals();
-
-  } catch (err) {
-
-    console.log("ERROR REFUND:");
-    console.log(err.response?.data);
-
-    alert(
-      JSON.stringify(
-        err.response?.data,
-        null,
-        2
-      )
-    );
-
-  }
-}
 
   const filteredRows = rows.filter((row) => {
     const keyword = search.trim().toLowerCase();
@@ -645,201 +554,196 @@ async function handleRefund(id) {
 
     const customerPhone =
       row.user?.phone_number ||
-      row.manual_customer?.phone_number ||
+      row.manual_customer?.customer_phone ||
       "";
 
-    const vehicleName = row.vehicle?.name || "";
-    const bookingCode = row.booking_code || "";
+    const vehicleName =
+      row.vehicle?.name || "";
+
+    const bookingCode =
+      row.booking_code || "";
 
     const matchesSearch =
       !keyword ||
-      [bookingCode, customerName, customerPhone, vehicleName]
+      [
+        bookingCode,
+        customerName,
+        customerPhone,
+        vehicleName,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(keyword);
 
     const matchesStatus =
-      !statusFilter || row.status === statusFilter;
+      !statusFilter ||
+      row.status === statusFilter;
 
     const matchesPayment =
-      !paymentStatusFilter || row.payment_status === paymentStatusFilter;
+      !paymentStatusFilter ||
+      row.payment_status === paymentStatusFilter;
 
     return matchesSearch && matchesStatus && matchesPayment;
   });
 
   return (
     <div className="space-y-4">
-
       {msg && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           {msg}
         </div>
       )}
 
-  <DataTable
-    title="Daftar Rental"
-    subtitle="Kelola rental kendaraan"
-    rows={filteredRows}
-    loading={loading}
-    searchValue={search}
-    onSearchChange={setSearch}
-    showActions
-    headerRight={
-    <div className="flex flex-wrap items-center gap-2">
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        className="border border-gray-300 px-3 py-2 text-sm"
-      >
-        <option value="">Semua Status Rental</option>
+      <DataTable
+        title="Daftar Rental"
+        subtitle="Kelola rental kendaraan"
+        rows={filteredRows}
+        loading={loading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        showActions
+        headerRight={
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value)
+              }
+              className="border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">
+                Semua Status Rental
+              </option>
 
-        {Object.keys(RENTAL_STATUS_OPTIONS).map((key) => (
-          <option key={key} value={key}>
-            {RENTAL_STATUS_OPTIONS[key]}
-          </option>
-        ))}
-      </select>
+              {Object.keys(RENTAL_STATUS_OPTIONS).map((key) => (
+                <option key={key} value={key}>
+                  {RENTAL_STATUS_OPTIONS[key]}
+                </option>
+              ))}
+            </select>
 
-      <select
-        value={paymentStatusFilter}
-        onChange={(e) => setPaymentStatusFilter(e.target.value)}
-        className="border border-gray-300 px-3 py-2 text-sm"
-      >
-        <option value="">Semua Pembayaran</option>
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) =>
+                setPaymentStatusFilter(e.target.value)
+              }
+              className="border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">
+                Semua Pembayaran
+              </option>
 
-        {Object.keys(PAYMENT_STATUS_OPTIONS).map((key) => (
-          <option key={key} value={key}>
-            {PAYMENT_STATUS_OPTIONS[key]}
-          </option>
-        ))}
-      </select>
+              {Object.keys(PAYMENT_STATUS_OPTIONS).map((key) => (
+                <option key={key} value={key}>
+                  {PAYMENT_STATUS_OPTIONS[key]}
+                </option>
+              ))}
+            </select>
 
-      <button
-        type="button"
-        onClick={() => {
-          setSearch("");
-          setStatusFilter("");
-          setPaymentStatusFilter("");
-        }}
-        className="border border-gray-300 px-3 py-2 text-sm font-semibold"
-      >
-        Reset
-      </button>
-    </div>
-  }
-          columns={[
-            {
-              key: "booking_code",
-              label: "Kode",
-            },
-
-            {
-              key: "customer",
-              label: "Penyewa",
-            },
-
-            {
-              key: "vehicle",
-              label: "Kendaraan",
-            },
-
-            {
-              key: "total_price",
-              label: "Total",
-            },
-
-            {
-              key: "status",
-              label: "Status",
-            },
-
-            {
-              key: "payment_status",
-              label: "Pembayaran",
-            },
-          ]}
-
-          renderCell={({ row, col }) => {
-
-            if (col.key === "customer") {
-              return (
-                row.user?.full_name ||
-                row.manual_customer
-                  ?.customer_name ||
-                "-"
-              );
-            }
-
-            if (col.key === "vehicle") {
-              return row.vehicle?.name || "-";
-            }
-
-            if (col.key === "total_price") {
-              return formatCurrency(
-                row.total_price
-              );
-            }
-
-            if (col.key === "status") {
-              return (
-                <Badge
-                  color={getStatusColor(
-                    row.status
-                  )}
-                >
-                  {getRentalStatusLabel(
-                    row.status
-                  )}
-                </Badge>
-              );
-            }
-
-            if (
-              col.key === "payment_status"
-            ) {
-              return (
-                <Badge
-                  color={getPaymentStatusColor(
-                    row.payment_status
-                  )}
-                >
-                  {getPaymentStatusLabel(
-                    row.payment_status
-                  )}
-                </Badge>
-              );
-            }
-
-            return row[col.key];
-          }}
-
-  actionsRender={({ row }) => (
-    <div className="flex gap-2">
-
-      <button
-        onClick={() =>
-          openEditModal(row)
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("");
+                setPaymentStatusFilter("");
+              }}
+              className="border border-gray-300 px-3 py-2 text-sm font-semibold"
+            >
+              Reset
+            </button>
+          </div>
         }
-        className="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white"
-      >
-        Edit
-      </button>
+        columns={[
+          {
+            key: "booking_code",
+            label: "Kode",
+          },
+          {
+            key: "customer",
+            label: "Penyewa",
+          },
+          {
+            key: "vehicle",
+            label: "Kendaraan",
+          },
+          {
+            key: "total_price",
+            label: "Total",
+          },
+          {
+            key: "status",
+            label: "Status",
+          },
+          {
+            key: "payment_status",
+            label: "Pembayaran",
+          },
+        ]}
+        renderCell={({ row, col }) => {
+          if (col.key === "customer") {
+            return (
+              row.user?.full_name ||
+              row.manual_customer?.customer_name ||
+              "-"
+            );
+          }
 
-      {row.status === "approved" &&
-        row.payment_status === "paid" && (
-          <button
-            onClick={() =>
-              handleRefund(row.id)
-            }
-            className="rounded-md bg-red-600 px-3 py-1 text-xs text-white"
-          >
-            Refund
-          </button>
+          if (col.key === "vehicle") {
+            return row.vehicle?.name || "-";
+          }
+
+          if (col.key === "total_price") {
+            return formatCurrency(row.total_price);
+          }
+
+          if (col.key === "status") {
+            return (
+              <Badge color={getStatusColor(row.status)}>
+                {getRentalStatusLabel(row.status)}
+              </Badge>
+            );
+          }
+
+          if (col.key === "payment_status") {
+            return (
+              <Badge
+                color={getPaymentStatusColor(
+                  row.payment_status
+                )}
+              >
+                {getPaymentStatusLabel(
+                  row.payment_status
+                )}
+              </Badge>
+            );
+          }
+
+          return row[col.key];
+        }}
+        actionsRender={({ row }) => (
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                openEditModal(row)
+              }
+              className="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white"
+            >
+              Edit
+            </button>
+
+            {row.status === "approved" &&
+              row.payment_status === "paid" && (
+                <button
+                  onClick={() =>
+                    handleRefund(row.id)
+                  }
+                  className="rounded-md bg-red-600 px-3 py-1 text-xs text-white"
+                >
+                  Refund
+                </button>
+              )}
+          </div>
         )}
-
-    </div>
-  )}
-          
       />
 
       <Modal
@@ -853,9 +757,7 @@ async function handleRefund(id) {
             onSubmit={handleSaveEdit}
             className="space-y-5"
           >
-
             <div className="rounded-xl border border-gray-100 p-4 space-y-2">
-
               <div className="flex justify-between">
                 <span className="text-gray-400 text-sm">
                   Kode Booking
@@ -873,7 +775,8 @@ async function handleRefund(id) {
 
                 <span>
                   {selectedRow.user?.full_name ||
-                    selectedRow.manual_customer?.customer_name}
+                    selectedRow.manual_customer?.customer_name ||
+                    "-"}
                 </span>
               </div>
 
@@ -881,9 +784,10 @@ async function handleRefund(id) {
                 <span className="text-gray-400 text-sm">
                   No. Handphone
                 </span>
+
                 <span className="text-gray-700">
                   {selectedRow.user?.phone_number ||
-                    selectedRow.manual_customer?.phone_number || 
+                    selectedRow.manual_customer?.customer_phone ||
                     "-"}
                 </span>
               </div>
@@ -892,9 +796,10 @@ async function handleRefund(id) {
                 <span className="text-gray-400 text-sm">
                   Alamat
                 </span>
+
                 <span className="text-gray-700 text-right max-w-xs break-words">
                   {selectedRow.user?.address ||
-                    selectedRow.manual_customer?.address || 
+                    selectedRow.manual_customer?.address ||
                     "-"}
                 </span>
               </div>
@@ -905,20 +810,18 @@ async function handleRefund(id) {
                 </span>
 
                 <span>
-                  {
-                    selectedRow.vehicle
-                      ?.name
-                  }
+                  {selectedRow.vehicle?.name || "-"}
                 </span>
               </div>
 
-              {/* MENAMPILKAN MASA SEWA (TANGGAL MULAI s/d SELESAI) */}
               <div className="flex justify-between">
                 <span className="text-gray-400 text-sm">
                   Masa Sewa
                 </span>
+
                 <span className="text-gray-700 font-medium">
-                  {formatDate(selectedRow.start_date || selectedRow.start_time)} - {formatDate(selectedRow.end_date || selectedRow.end_time)}
+                  {formatDate(selectedRow.start_date)} -{" "}
+                  {formatDate(selectedRow.end_date)}
                 </span>
               </div>
 
@@ -928,55 +831,28 @@ async function handleRefund(id) {
                 </span>
 
                 <span className="font-semibold">
-                  {formatCurrency(
-                    selectedRow.total_price
-                  )}
+                  {formatCurrency(selectedRow.total_price)}
                 </span>
               </div>
-
             </div>
 
             <SectionDivider label="STATUS RENTAL" />
 
             <div className="grid grid-cols-2 gap-4">
-
               <div>
                 <FieldLabel>
                   Status Rental
                 </FieldLabel>
 
-              <select
-                name="status"
-                value={editForm.status}
-                onChange={handleEditChange}
-                className={inputCls(false)}
-              >
-                {Object.keys(RENTAL_STATUS_OPTIONS).map((key) => (
-                  <option key={key} value={key}>
-                    {RENTAL_STATUS_OPTIONS[key]}
-                  </option>
-                ))}
-              </select>               
-              </div>
-
-              <div>
-                <FieldLabel>
-                  Status Pembayaran
-                </FieldLabel>
-
                 <select
-                  name="payment_status"
-                  value={
-                    editForm.payment_status
-                  }
-                  onChange={
-                    handleEditChange
-                  }
+                  name="status"
+                  value={editForm.status}
+                  onChange={handleEditChange}
                   className={inputCls(false)}
                 >
-                  {Object.keys(PAYMENT_STATUS_OPTIONS).map((key) => (
+                  {Object.keys(RENTAL_STATUS_OPTIONS).map((key) => (
                     <option key={key} value={key}>
-                      {PAYMENT_STATUS_OPTIONS[key]}
+                      {RENTAL_STATUS_OPTIONS[key]}
                     </option>
                   ))}
                 </select>
@@ -984,60 +860,28 @@ async function handleRefund(id) {
 
               <div>
                 <FieldLabel>
-                  Metode Pembayaran
+                  Status Pembayaran
                 </FieldLabel>
 
-                <select
-                  name="payment_method"
-                  value={
-                    editForm.payment_method
-                  }
-                  onChange={
-                    handleEditChange
-                  }
-                  className={inputCls(false)}
-                >
-                  <option value="transfer">
-                    Transfer
-                  </option>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-700">
+                  {getPaymentStatusLabel(editForm.payment_status)}
+                </div>
 
-                  <option value="cash">
-                    Tunai (Cash)
-                  </option>
-
-                </select>
-              </div>
-
-              <div>
-                <FieldLabel>
-                  Nominal Bayar
-                </FieldLabel>
-
-                <input
-                  type="number"
-                  name="amount"
-                  value={editForm.amount}
-                  onChange={
-                    handleEditChange
-                  }
-                  className={inputCls(false)}
-                />
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Pembayaran diperbarui otomatis oleh sistem.
+                </p>
               </div>
 
               <div className="col-span-2">
                 <FieldLabel>
-                  Pengembalian Aktual (Actual Return)
+                  Pengembalian Aktual
                 </FieldLabel>
 
                 <input
                   type="datetime-local"
                   name="actual_return_at"
-                  value={
-                    editForm.actual_return_at
-                  }
-                  onChange={
-                    handleEditChange
-                  }
+                  value={editForm.actual_return_at}
+                  onChange={handleEditChange}
                   className={inputCls(false)}
                 />
               </div>
@@ -1051,34 +895,24 @@ async function handleRefund(id) {
                   rows={3}
                   name="notes"
                   value={editForm.notes}
-                  onChange={
-                    handleEditChange
-                  }
+                  onChange={handleEditChange}
                   className={inputCls(false)}
                 />
               </div>
-
             </div>
 
             <SectionDivider label="DENDA KETERLAMBATAN" />
 
             <div className="space-y-3">
-
               <label className="flex items-center gap-2 text-sm">
-
                 <input
                   type="checkbox"
                   name="has_late_fine"
-                  checked={
-                    editForm.has_late_fine
-                  }
-                  onChange={
-                    handleEditChange
-                  }
+                  checked={editForm.has_late_fine}
+                  onChange={handleEditChange}
                 />
 
                 Ada denda keterlambatan
-
               </label>
 
               {editForm.has_late_fine && (
@@ -1086,36 +920,25 @@ async function handleRefund(id) {
                   type="number"
                   name="late_fine_amount"
                   placeholder="Jumlah denda"
-                  value={
-                    editForm.late_fine_amount
-                  }
-                  onChange={
-                    handleEditChange
-                  }
+                  value={editForm.late_fine_amount}
+                  onChange={handleEditChange}
                   className={inputCls(false)}
                 />
               )}
-
             </div>
 
             <SectionDivider label="KERUSAKAN" />
 
             <div className="space-y-3">
-
               <div className="grid grid-cols-2 gap-3">
-
                 <input
                   type="text"
                   placeholder="Deskripsi kerusakan"
-                  value={
-                    editForm.damage_name
-                  }
+                  value={editForm.damage_name}
                   onChange={(e) =>
                     setEditForm((prev) => ({
                       ...prev,
-
-                      damage_name:
-                        e.target.value,
+                      damage_name: e.target.value,
                     }))
                   }
                   className={inputCls(false)}
@@ -1124,20 +947,15 @@ async function handleRefund(id) {
                 <input
                   type="number"
                   placeholder="Biaya perbaikan"
-                  value={
-                    editForm.damage_cost
-                  }
+                  value={editForm.damage_cost}
                   onChange={(e) =>
                     setEditForm((prev) => ({
                       ...prev,
-
-                      damage_cost:
-                        e.target.value,
+                      damage_cost: e.target.value,
                     }))
                   }
                   className={inputCls(false)}
                 />
-
               </div>
 
               <button
@@ -1149,57 +967,39 @@ async function handleRefund(id) {
               </button>
 
               <div className="space-y-2">
+                {editForm.damages.map((dmg, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {dmg.description}
+                      </p>
 
-                {editForm.damages.map(
-                  (dmg, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
-                    >
-
-                      <div>
-
-                        <p className="text-sm font-medium">
-                          {
-                            dmg.description
-                          }
-                        </p>
-
-                        <p className="text-xs text-gray-400">
-                          {formatCurrency(
-                            dmg.repair_cost
-                          )}
-                        </p>
-
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeDamage(
-                            idx
-                          )
-                        }
-                        className="text-xs text-red-500"
-                      >
-                        Hapus
-                      </button>
-
+                      <p className="text-xs text-gray-400">
+                        {formatCurrency(dmg.repair_cost)}
+                      </p>
                     </div>
-                  )
-                )}
 
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeDamage(idx)
+                      }
+                      className="text-xs text-red-500"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                ))}
               </div>
-
             </div>
 
             <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
-
               <button
                 type="button"
-                onClick={
-                  closeEditModal
-                }
+                onClick={closeEditModal}
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm"
               >
                 Batal
@@ -1214,9 +1014,7 @@ async function handleRefund(id) {
                   ? "Menyimpan..."
                   : "Simpan"}
               </button>
-
             </div>
-
           </form>
         )}
       </Modal>
