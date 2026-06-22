@@ -156,13 +156,18 @@ export default function PesananSaya() {
       return rows.filter((item) => String(item.status).toLowerCase() === "pending");
     }
 
-    if (activeTab === "waiting_payment") {
-      return rows.filter(
-        (item) =>
-          String(item.status).toLowerCase() === "approved" &&
-          String(item.payment_status).toLowerCase() === "unpaid"
-      );
-    }
+if (activeTab === "waiting_payment") {
+  return rows.filter((item) => {
+    const status = String(item.status || "").toLowerCase();
+    const paymentStatus = String(item.payment_status || "").toLowerCase();
+    const extraCost = Number(item.total_extra_cost || 0);
+
+    return (
+      (status === "approved" && paymentStatus === "unpaid") ||
+      (status === "waiting_payment" && extraCost > 0)
+    );
+  });
+}
 
     if (activeTab === "ongoing") {
       return rows.filter((item) =>
@@ -187,10 +192,10 @@ export default function PesananSaya() {
     navigate(`/pesanan-saya/${itemId}`);
   };
 
-  const goToPayment = (e, itemId) => {
-    e.stopPropagation();
-    navigate(`/pesanan-saya/${itemId}/pembayaran`);
-  };
+const goToPayment = (e, itemId, paymentType = "full") => {
+  e.stopPropagation();
+  navigate(`/pesanan-saya/${itemId}/pembayaran?type=${paymentType}`);
+};
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -238,9 +243,23 @@ export default function PesananSaya() {
             <div className="space-y-4">
               {filteredRows.map((item) => {
                 const vehicle = item.vehicle || {};
-                const canPay =
-                  String(item.status).toLowerCase() === "approved" &&
-                  String(item.payment_status).toLowerCase() === "unpaid";
+                const status = String(item.status || "").toLowerCase();
+                const paymentStatus = String(item.payment_status || "").toLowerCase();
+                const extraCost = Number(item.total_extra_cost || 0);
+
+                const canPayRental =
+                  status === "approved" &&
+                  paymentStatus === "unpaid";
+
+                const canPayExtra =
+                  status === "waiting_payment" &&
+                  extraCost > 0;
+
+                const canPay = canPayRental || canPayExtra;
+
+                const paymentAmount = canPayExtra
+                ? extraCost
+                : Number(item.total_price || 0);
 
                 return (
                   <div
@@ -286,7 +305,7 @@ export default function PesananSaya() {
                           <div>
                             <p className="text-xs text-gray-400">Total Bayar</p>
                             <p className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(item.total_price)}
+                              {formatCurrency(paymentAmount)}
                             </p>
                           </div>
                         </div>
@@ -329,15 +348,20 @@ export default function PesananSaya() {
                       </div>
 
                       <div className="flex flex-col gap-2 lg:min-w-[220px]">
-                        {canPay ? (
-                          <button
-                            type="button"
-                            onClick={(e) => goToPayment(e, item.id)}
-                            className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
-                          >
-                            Bayar Sekarang
-                          </button>
-                        ) : (
+{canPay ? (
+  <button
+    onClick={(e) =>
+      goToPayment(
+        e,
+        item.id,
+        canPayExtra ? "extra" : "full"
+      )
+    }
+    className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
+  >
+    {canPayExtra ? "Bayar Tagihan Tambahan" : "Bayar Sekarang"}
+  </button>
+) : (
                           <div className="text-xs text-gray-400 text-right">
                             Klik kartu untuk lihat detail pesanan
                           </div>

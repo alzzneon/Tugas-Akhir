@@ -147,10 +147,24 @@ export default function DetailPesanan() {
     );
   }
 
-  const vehicle = item.vehicle || {};
-  const canPay =
-    String(item.status).toLowerCase() === "approved" &&
-    String(item.payment_status).toLowerCase() === "unpaid";
+    const vehicle = item.vehicle || {};
+    const status = String(item.status || "").toLowerCase();
+    const paymentStatus = String(item.payment_status || "").toLowerCase();
+    const extraCost = Number(item.total_extra_cost || 0);
+
+    const canPayRental =
+      status === "approved" &&
+      paymentStatus === "unpaid";
+
+    const canPayExtra =
+      status === "waiting_payment" &&
+      extraCost > 0;
+
+    const canPay = canPayRental || canPayExtra;
+
+    const paymentAmount = canPayExtra
+      ? extraCost
+      : Number(item.total_price || 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -184,7 +198,7 @@ export default function DetailPesanan() {
 
               <div className="rounded-xl bg-gray-50 p-4">
                 <p className="text-xs text-gray-400">Total Bayar</p>
-                <p className="mt-1 font-semibold text-gray-900">{formatCurrency(item.total_price)}</p>
+                <p className="mt-1 font-semibold text-gray-900">{formatCurrency(paymentAmount)}</p>
               </div>
 
               <div className="rounded-xl bg-gray-50 p-4">
@@ -231,10 +245,14 @@ export default function DetailPesanan() {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => navigate(`/pesanan-saya/${item.id}/pembayaran`)}
+                  onClick={() =>
+                    navigate(
+                      `/pesanan-saya/${item.id}/pembayaran?type=${canPayExtra ? "extra" : "full"}`
+                    )
+                  }
                   className="rounded-xl bg-red-500 px-5 py-3 text-sm font-semibold text-white hover:bg-red-600"
                 >
-                  Bayar Sekarang
+                  {canPayExtra ? "Bayar Tagihan Tambahan" : "Bayar Sekarang"}
                 </button>
               </div>
             )}

@@ -298,38 +298,50 @@ export default function RentalsList({ type }) {
     }));
   }
 
-  function openEditModal(row) {
-    setSelectedRow(row);
+function openEditModal(row) {
+  setSelectedRow(row);
 
-    setEditForm({
-      status: row.status || "",
+  const existingDamages = Array.isArray(row.damages)
+    ? row.damages.map((item) => ({
+        description: item.description || "",
+        repair_cost: Number(item.repair_cost || 0),
+      }))
+    : [];
 
-      payment_status:
-        row.payment_status || "",
+  const existingLateFineAmount = Array.isArray(row.late_fines)
+    ? row.late_fines.reduce((total, item) => {
+        return total + Number(item.total_fine || 0);
+      }, 0)
+    : 0;
 
-      payment_method: "transfer",
+  setEditForm({
+    status: row.status || "",
 
-      payment_type: "full",
+    payment_status: row.payment_status || "",
 
-      amount: "",
+    payment_method: "transfer",
 
-      notes: "",
+    payment_type: "full",
 
-      actual_return_at: "",
+    amount: "",
 
-      has_late_fine: false,
+    notes: row.notes || "",
 
-      late_fine_amount: "",
+    actual_return_at: row.actual_return_at || "",
 
-      damages: [],
+    has_late_fine: Boolean(row.has_late_fine || existingLateFineAmount > 0),
 
-      damage_name: "",
+    late_fine_amount: existingLateFineAmount > 0 ? existingLateFineAmount : "",
 
-      damage_cost: "",
-    });
+    damages: existingDamages,
 
-    setOpenEdit(true);
-  }
+    damage_name: "",
+
+    damage_cost: "",
+  });
+
+  setOpenEdit(true);
+}
 
   function closeEditModal() {
     setOpenEdit(false);
@@ -394,6 +406,19 @@ async function handleSaveEdit(e) {
     const nextStatus =
       editForm.status;
 
+    const hasPendingDamageInput =
+      Boolean(editForm.damage_name) ||
+      Boolean(editForm.damage_cost);
+
+    const hasInspectionData =
+      Boolean(editForm.has_late_fine) ||
+      Number(editForm.late_fine_amount || 0) > 0 ||
+      editForm.damages.length > 0 ||
+      hasPendingDamageInput;
+
+    const canRunInspection =
+      ["returned", "inspection", "waiting_payment"].includes(currentStatus);
+
     // APPROVE
     if (
       currentStatus === "pending" &&
@@ -448,45 +473,43 @@ async function handleSaveEdit(e) {
       );
     }
 
-    // INSPECTION
-    else if (
-      currentStatus === "returned" &&
-      (
-        nextStatus === "inspection" ||
-        nextStatus === "waiting_payment" ||
-        nextStatus === "completed"
-      )
-    ) {
+// INSPECTION / CEK KENDARAAN SETELAH DIKEMBALIKAN
+else if (
+  canRunInspection &&
+  (
+    hasInspectionData ||
+    ["returned", "inspection"].includes(currentStatus)
+  )
+) {
+  if (editForm.damage_name || editForm.damage_cost) {
+    setMsg("Klik + Tambah Kerusakan terlebih dahulu sebelum menyimpan.");
+    setSavingEdit(false);
+    return;
+  }
 
-      const hasFine =
-        editForm.has_late_fine;
+  const hasFine =
+    Boolean(editForm.has_late_fine) &&
+    Number(editForm.late_fine_amount || 0) > 0;
 
-      const hasDamage =
-        editForm.damages.length > 0;
+  const hasDamage =
+    editForm.damages.length > 0;
 
-      await api.patch(
-        `/admin/rentals/${selectedRow.id}/inspect`,
-        {
-          has_late_fine:
-            hasFine,
+  await api.patch(
+    `/admin/rentals/${selectedRow.id}/inspect`,
+    {
+      has_late_fine: hasFine,
 
-          late_fine_amount:
-            editForm.late_fine_amount
-              ? Number(
-                  editForm.late_fine_amount
-                )
-              : 0,
+      late_fine_amount: hasFine
+        ? Number(editForm.late_fine_amount || 0)
+        : 0,
 
-          has_damage:
-            hasDamage,
+      has_damage: hasDamage,
 
-          damages:
-            editForm.damages,
-        }
-      );
+      damages: editForm.damages,
     }
-
-    // PAYMENT COMPLETED
+  );
+}
+   
     else if (
       currentStatus === "waiting_payment" &&
       nextStatus === "repair_process"

@@ -524,10 +524,13 @@ class RentalController extends ResourceController
                         $validated['payment_type']
                         ?? 'full',
 
-                    'payment_status' =>
-                        $validated['payment_status']
-                        ?? 'paid',
-
+                    'payment_status' => match ($validated['payment_status'] ?? 'paid') {
+                        'paid' => 'settlement',
+                        'refund' => 'refund',
+                        'expired' => 'expire',
+                        'failed' => 'deny',
+                        default => 'settlement',
+                    },
                     'paid_at' => now(),
                 ]);
             }
@@ -1113,71 +1116,95 @@ class RentalController extends ResourceController
         return $result;
     }
 
-    private function transformRental(Rental $r): array
-    {
-        $manualFromNotes = $this->extractManualCustomer($r->notes);
+private function transformRental(Rental $r): array
+{
+    $manualFromNotes = $this->extractManualCustomer($r->notes);
 
-        $manualCustomer = null;
+    $manualCustomer = null;
 
-        if (!$r->user_id) {
-            $manualCustomer = [
-                'customer_name' => $r->customer_name ?? ($manualFromNotes['customer_name'] ?? null),
-                'customer_phone' => $r->customer_phone ?? ($manualFromNotes['customer_phone'] ?? null),
-                'customer_email' => $r->customer_email ?? ($manualFromNotes['customer_email'] ?? null),
-            ];
-        }
-
-        return [
-            'id' => $r->id,
-            'booking_code' => $r->booking_code,
-
-            'user' => $r->user ? [
-                'id' => $r->user->id,
-                'full_name' => $r->user->full_name,
-                'email' => $r->user->email,
-                'phone_number' => $r->user->phone_number,
-                'address' => $r->user->address,
-            ] : null,
-
-            'manual_customer' => $manualCustomer,
-
-            'vehicle' => $r->vehicle ? [
-                'id' => $r->vehicle->id,
-                'name' => $r->vehicle->name,
-                'plate_number' => $r->vehicle->plate_number,
-                'daily_rate' => $r->vehicle->daily_rate,
-                'vehicle_type' => $r->vehicle->type ? [
-                    'id' => $r->vehicle->type->id,
-                    'code' => $r->vehicle->type->code,
-                    'name' => $r->vehicle->type->name,
-                ] : null,
-            ] : null,
-
-            'start_date' => optional($r->start_date)->toDateTimeString(),
-            'end_date' => optional($r->end_date)->toDateTimeString(),
-            'actual_pickup_at' => optional($r->actual_pickup_at)->toDateTimeString(),
-            'actual_return_at' => optional($r->actual_return_at)->toDateTimeString(),
-
-            'total_date' => $r->total_date,
-            'total_price' => $r->total_price,
-            'status' => $r->status,
-            'payment_status' => $r->payment_status,
-            'payment_deadline' => optional($r->payment_deadline)->toDateTimeString(),
-            'pickup_method' => $r->pickup_method,
-            'delivery_address' => $r->delivery_address,
-
-            'approved_at' => optional($r->approved_at)->toDateTimeString(),
-            'approved_by' => $r->approvedBy?->full_name,
-
-            'rejected_at' => optional($r->rejected_at)->toDateTimeString(),
-            'rejected_by' => $r->rejectedBy?->full_name,
-            'rejection_reason' => $r->rejection_reason,
-
-            'notes' => $r->notes,
-            'created_at' => optional($r->created_at)->toDateTimeString(),
-            'updated_at' => optional($r->updated_at)->toDateTimeString(),
+    if (!$r->user_id) {
+        $manualCustomer = [
+            'customer_name' => $r->customer_name ?? ($manualFromNotes['customer_name'] ?? null),
+            'customer_phone' => $r->customer_phone ?? ($manualFromNotes['customer_phone'] ?? null),
+            'customer_email' => $r->customer_email ?? ($manualFromNotes['customer_email'] ?? null),
         ];
     }
+
+    return [
+        'id' => $r->id,
+        'booking_code' => $r->booking_code,
+
+        'user' => $r->user ? [
+            'id' => $r->user->id,
+            'full_name' => $r->user->full_name,
+            'email' => $r->user->email,
+            'phone_number' => $r->user->phone_number,
+            'address' => $r->user->address,
+        ] : null,
+
+        'manual_customer' => $manualCustomer,
+
+        'vehicle' => $r->vehicle ? [
+            'id' => $r->vehicle->id,
+            'name' => $r->vehicle->name,
+            'plate_number' => $r->vehicle->plate_number,
+            'daily_rate' => $r->vehicle->daily_rate,
+            'vehicle_type' => $r->vehicle->type ? [
+                'id' => $r->vehicle->type->id,
+                'code' => $r->vehicle->type->code,
+                'name' => $r->vehicle->type->name,
+            ] : null,
+        ] : null,
+
+        'start_date' => optional($r->start_date)->toDateTimeString(),
+        'end_date' => optional($r->end_date)->toDateTimeString(),
+        'actual_pickup_at' => optional($r->actual_pickup_at)->toDateTimeString(),
+        'actual_return_at' => optional($r->actual_return_at)->toDateTimeString(),
+
+        'total_date' => $r->total_date,
+        'total_price' => (float) $r->total_price,
+        'status' => $r->status,
+        'payment_status' => $r->payment_status,
+        'payment_deadline' => optional($r->payment_deadline)->toDateTimeString(),
+        'pickup_method' => $r->pickup_method,
+        'delivery_address' => $r->delivery_address,
+
+        'approved_at' => optional($r->approved_at)->toDateTimeString(),
+        'approved_by' => $r->approvedBy?->full_name,
+
+        'rejected_at' => optional($r->rejected_at)->toDateTimeString(),
+        'rejected_by' => $r->rejectedBy?->full_name,
+        'rejection_reason' => $r->rejection_reason,
+
+        'has_late_fine' => (bool) $r->has_late_fine,
+        'has_damage' => (bool) $r->has_damage,
+        'total_extra_cost' => (float) ($r->total_extra_cost ?? 0),
+
+        'late_fines' => $r->lateFines
+            ? $r->lateFines->map(fn ($fine) => [
+                'id' => $fine->id,
+                'total_fine' => (float) $fine->total_fine,
+                'status' => $fine->status,
+                'calculation_type' => $fine->calculation_type ?? null,
+                'late_hours' => $fine->late_hours ?? null,
+                'late_minutes' => $fine->late_minutes ?? null,
+            ])->values()
+            : [],
+
+        'damages' => $r->damages
+            ? $r->damages->map(fn ($damage) => [
+                'id' => $damage->id,
+                'description' => $damage->description,
+                'repair_cost' => (float) $damage->repair_cost,
+                'status' => $damage->status,
+            ])->values()
+            : [],
+
+        'notes' => $r->notes,
+        'created_at' => optional($r->created_at)->toDateTimeString(),
+        'updated_at' => optional($r->updated_at)->toDateTimeString(),
+    ];
+}
 
 public function inspectVehicle(Request $request, int $id)
 {
@@ -1196,80 +1223,114 @@ public function inspectVehicle(Request $request, int $id)
 
     if (!in_array($rental->status, [
         'returned',
+        'inspection',
+        'waiting_payment',
     ], true)) {
-
         return $this->error(
             'Rental belum bisa diinspeksi.',
             422
         );
     }
 
-    DB::transaction(function () use (
-        $validated,
-        $rental
-    ) {
+    DB::transaction(function () use ($validated, $rental) {
+        /*
+        |--------------------------------------------------------------------------
+        | HAPUS DATA KERUSAKAN LAMA UNTUK RENTAL INI
+        |--------------------------------------------------------------------------
+        | Supaya ketika admin simpan ulang, data kerusakan tidak dobel.
+        */
 
-        $rental->update([
-            'status' => 'inspection',
-        ]);
+        $existingDamageIds = $rental->damages()
+            ->pluck('id')
+            ->all();
 
-        $totalExtra = 0;
-        $totalExtra += $rental->lateFines()
-            ->sum('total_fine');
-
-        // DENDA TELAT
-        if ($validated['has_late_fine']) {
-
-            $fineAmount = (float)
-                ($validated['late_fine_amount'] ?? 0);
-
-            $rental->lateFines()->create([
-                'total_fine' => $fineAmount,
-                'status' => 'unpaid',
-            ]);
-
-            $totalExtra += $fineAmount;
+        if (!empty($existingDamageIds)) {
+            DB::table('vehicle_services')
+                ->whereIn('damage_id', $existingDamageIds)
+                ->delete();
         }
 
-        // KERUSAKAN
-        if ($validated['has_damage']) {
+        $rental->damages()->delete();
 
-            $maintenanceTypeId = DB::table('mt_maintenance_types')
-                ->where('name', 'Perbaikan Kerusakan')
-                ->value('id');
+        /*
+        |--------------------------------------------------------------------------
+        | HITUNG TOTAL DENDA / BIAYA TAMBAHAN
+        |--------------------------------------------------------------------------
+        */
 
-            foreach (($validated['damages'] ?? []) as $damage) {
+        $totalExtra = 0;
 
-                $repairCost = (float)
-                    $damage['repair_cost'];
+        $rental->lateFines()
+            ->where('calculation_type', 'manual')
+            ->where('status', 'unpaid')
+            ->delete();
 
-                $damageRow = $rental->damages()->create([
-                    'vehicle_id' => $rental->vehicle_id,
-                    'description' => $damage['description'],
-                    'repair_cost' => $repairCost,
-                    'status' => 'pending',
+        $totalExtra += (float) $rental->lateFines()
+            ->sum('total_fine');
+
+        if ($validated['has_late_fine']) {
+            $fineAmount = (float) ($validated['late_fine_amount'] ?? 0);
+
+            if ($fineAmount > 0) {
+                $rental->lateFines()->create([
+                    'total_fine' => $fineAmount,
+                    'status' => 'unpaid',
+                    'calculation_type' => 'manual',
+                    'late_hours' => 0,
                 ]);
 
-                DB::table('vehicle_services')->insert([
-                    'vehicle_id' => $rental->vehicle_id,
-                    'rental_id' => $rental->id,
-                    'damage_id' => $damageRow->id,
-                    'maintenance_type_id' => $maintenanceTypeId,
-                    'service_date' => now()->toDateString(),
-                    'service_type' => 'Perbaikan Kerusakan',
-                    'condition_status' => 'damaged',
-                    'description' => $damage['description'],
-                    'cost' => $repairCost,
-                    'status' => 'planned',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $totalExtra += $repairCost;
+                $totalExtra += $fineAmount;
             }
         }
 
-        // STATUS AKHIR
+        /*
+        |--------------------------------------------------------------------------
+        | SIMPAN KERUSAKAN
+        |--------------------------------------------------------------------------
+        */
+
+        $damages = $validated['has_damage']
+            ? ($validated['damages'] ?? [])
+            : [];
+
+        $maintenanceTypeId = DB::table('mt_maintenance_types')
+            ->where('name', 'Perbaikan Kerusakan')
+            ->value('id');
+
+        foreach ($damages as $damage) {
+            $repairCost = (float) $damage['repair_cost'];
+
+            $damageRow = $rental->damages()->create([
+                'vehicle_id' => $rental->vehicle_id,
+                'description' => $damage['description'],
+                'repair_cost' => $repairCost,
+                'status' => 'pending',
+            ]);
+
+            DB::table('vehicle_services')->insert([
+                'vehicle_id' => $rental->vehicle_id,
+                'rental_id' => $rental->id,
+                'damage_id' => $damageRow->id,
+                'maintenance_type_id' => $maintenanceTypeId,
+                'service_date' => now()->toDateString(),
+                'service_type' => 'Perbaikan Kerusakan',
+                'condition_status' => 'damaged',
+                'description' => $damage['description'],
+                'cost' => $repairCost,
+                'status' => 'planned',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $totalExtra += $repairCost;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | STATUS AKHIR RENTAL
+        |--------------------------------------------------------------------------
+        */
+
         $newStatus = $totalExtra > 0
             ? 'waiting_payment'
             : 'completed';
@@ -1277,8 +1338,8 @@ public function inspectVehicle(Request $request, int $id)
         $rental->update([
             'status' => $newStatus,
             'inspected_at' => now(),
-            'has_late_fine' => $validated['has_late_fine'],
-            'has_damage' => $validated['has_damage'],
+            'has_late_fine' => (float) $rental->lateFines()->sum('total_fine') > 0,
+            'has_damage' => count($damages) > 0,
             'total_extra_cost' => $totalExtra,
         ]);
     });
@@ -1418,18 +1479,17 @@ public function inspectVehicle(Request $request, int $id)
         $rental
     ) {
 
-        Payment::create([
-            'rental_id' => $rental->id,
-            'amount' => $validated['amount'],
-            'payment_method' => $validated['payment_method'],
-            'payment_status' => 'paid',
-            'payment_type' => 'full',
-            'provider' => 'manual',
-            'provider_reference' => 'ADD-' . now()->format('YmdHis'),
-            'notes' => $validated['notes'] ?? null,
-            'paid_at' => now(),
-        ]);
-
+Payment::create([
+    'rental_id' => $rental->id,
+    'amount' => $validated['amount'],
+    'payment_method' => $validated['payment_method'],
+    'payment_status' => 'settlement',
+    'payment_type' => 'extra',
+    'provider' => 'manual',
+    'provider_reference' => 'ADD-' . now()->format('YmdHis'),
+    'notes' => $validated['notes'] ?? null,
+    'paid_at' => now(),
+]);
         $rental->update([
             'status' => 'completed',
         ]);

@@ -27,22 +27,46 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         try {
+$request->validate([
+    'rental_id' => 'required|exists:rentals,id',
+    'payment_type' => 'nullable|in:full,extra,fine',
+]);
 
-            $request->validate([
-                'rental_id' => 'required|exists:rentals,id',
-            ]);
+Config::$serverKey = config('midtrans.server_key');
+Config::$isProduction = config('midtrans.is_production');
+Config::$isSanitized = config('midtrans.is_sanitized');
+Config::$is3ds = config('midtrans.is_3ds');
 
-            Config::$serverKey = config('midtrans.server_key');
-            Config::$isProduction = config('midtrans.is_production');
-            Config::$isSanitized = config('midtrans.is_sanitized');
-            Config::$is3ds = config('midtrans.is_3ds');
+$rental = Rental::with('user')->findOrFail($request->rental_id);
 
-            $rental = Rental::with('user')->findOrFail($request->rental_id);
+$requestedPaymentType = $request->input('payment_type', 'full');
 
-            $orderId = 'RENT-' . time() . '-' . $rental->id;
+$isFinePayment = in_array($requestedPaymentType, ['extra', 'fine'], true);
 
-            $grossAmount = (int) $rental->total_price;
+$dbPaymentType = $isFinePayment ? 'fine' : 'full';
 
+if ($isFinePayment) {
+    if ($rental->status !== 'waiting_payment') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Rental tidak memiliki tagihan tambahan.',
+        ], 422);
+    }
+
+    $grossAmount = (int) ($rental->total_extra_cost ?? 0);
+
+    if ($grossAmount <= 0) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Tagihan tambahan tidak ditemukan.',
+        ], 422);
+    }
+
+    $orderId = 'EXTRA-' . time() . '-' . $rental->id;
+} else {
+    $grossAmount = (int) $rental->total_price;
+    $orderId = 'RENT-' . time() . '-' . $rental->id;
+}
 
             $params = [
 
@@ -52,34 +76,24 @@ class PaymentController extends Controller
                 ],
 
                 'customer_details' => [
-                    'first_name' => $rental->user->name ?? 'Customer',
+                    'first_name' => $rental->user->full_name ?? 'Customer',
                     'email' => $rental->user->email ?? 'customer@mail.com',
                 ],
             ];
 
             $snapToken = Snap::getSnapToken($params);
 
-            $payment = Payment::create([
-
-                'rental_id' => $rental->id,
-
-                'amount' => $grossAmount,
-
-                'payment_method' => 'midtrans',
-
-                'payment_status' => 'pending',
-
-                'payment_type' => 'full',
-
-                'provider' => 'midtrans',
-
-                'order_id' => $orderId,
-
-                'snap_token' => $snapToken,
-
-                'currency' => 'IDR',
-            ]);
-
+$payment = Payment::create([
+    'rental_id' => $rental->id,
+    'amount' => $grossAmount,
+    'payment_method' => 'midtrans',
+    'payment_status' => 'pending',
+    'payment_type' => $dbPaymentType,
+    'provider' => 'midtrans',
+    'order_id' => $orderId,
+    'snap_token' => $snapToken,
+    'currency' => 'IDR',
+]);
             return response()->json([
                 'success' => true,
 

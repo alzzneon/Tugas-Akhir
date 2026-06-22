@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Header from "../../Components/Public/Header";
 import Footer from "../../Components/Public/Footer";
 
@@ -23,17 +23,13 @@ function formatDateTime(value) {
 
 export default function PembayaranPesanan() {
   const { id } = useParams();
-
+  const [searchParams] = useSearchParams();
+  const paymentType = searchParams.get("type") || "full";
   const navigate = useNavigate();
-
   const token = localStorage.getItem("token");
-
   const [rows, setRows] = useState([]);
-
   const [loading, setLoading] = useState(true);
-
   const [msg, setMsg] = useState("");
-
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
@@ -73,43 +69,40 @@ export default function PembayaranPesanan() {
     return rows.find((row) => String(row.id) === String(id)) || null;
   }, [rows, id]);
 
-  const handlePayment = async () => {
-    try {
-      setPaying(true);
+const handlePayment = async () => {
+  try {
+    setPaying(true);
 
-      const res = await fetch("http://localhost:8000/api/payments", {
-        method: "POST",
+    const res = await fetch("http://localhost:8000/api/payments", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        rental_id: item.id,
+        payment_type: isExtraPayment ? "extra" : "full",
+      }),
+    });
 
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+    const data = await res.json();
 
-        body: JSON.stringify({
-          rental_id: item.id,
-        }),
-      });
+    if (!res.ok) {
+      throw new Error(data?.message || "Gagal membuat pembayaran");
+    }
 
-      const data = await res.json();
+    const snapToken = data?.data?.snap_token;
 
-      if (!res.ok) {
-        throw new Error(data?.message || "Gagal membuat pembayaran");
-      }
+    if (!snapToken) {
+      throw new Error("Snap token tidak ditemukan");
+    }
 
-      const snapToken = data?.data?.snap_token;
-
-      if (!snapToken) {
-        throw new Error("Snap token tidak ditemukan");
-      }
-
-      window.snap.pay(snapToken, {
+    window.snap.pay(snapToken, {
       onSuccess: async function (result) {
-
         console.log("SUCCESS", result);
 
         try {
-
           const response = await fetch(
             "http://localhost:8000/api/midtrans/check-status",
             {
@@ -127,50 +120,39 @@ export default function PembayaranPesanan() {
 
           const data = await response.json();
 
-          console.log("CHECK STATUS RESPONSE", data);
-
           if (!response.ok) {
             throw new Error(data?.message || "Gagal sinkronisasi status");
           }
-
         } catch (err) {
-
           console.error("SYNC ERROR", err);
-
         }
 
         alert("Pembayaran berhasil");
-
         navigate("/pesanan-saya");
       },
 
-        onPending: function (result) {
-          console.log("PENDING", result);
+      onPending: function (result) {
+        console.log("PENDING", result);
+        alert("Menunggu pembayaran");
+        navigate("/pesanan-saya");
+      },
 
-          alert("Menunggu pembayaran");
+      onError: function (result) {
+        console.log("ERROR", result);
+        alert("Pembayaran gagal");
+      },
 
-          navigate("/pesanan-saya");
-        },
-
-        onError: function (result) {
-          console.log("ERROR", result);
-
-          alert("Pembayaran gagal");
-        },
-
-        onClose: function () {
-          alert("Popup pembayaran ditutup");
-        },
-      });
-    } catch (err) {
-      console.error(err);
-
-      alert(err.message || "Terjadi kesalahan");
-    } finally {
-      setPaying(false);
-    }
-  };
-
+      onClose: function () {
+        alert("Popup pembayaran ditutup");
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    alert(err.message || "Terjadi kesalahan");
+  } finally {
+    setPaying(false);
+  }
+};
 
   if (loading) {
     return (
@@ -221,9 +203,18 @@ export default function PembayaranPesanan() {
     );
   }
 
-  const canPay =
-    String(item.status).toLowerCase() === "approved" &&
-    String(item.payment_status).toLowerCase() === "unpaid";
+const isExtraPayment = paymentType === "extra";
+
+const canPay =
+  isExtraPayment
+    ? String(item.status).toLowerCase() === "waiting_payment" &&
+      Number(item.total_extra_cost || 0) > 0
+    : String(item.status).toLowerCase() === "approved" &&
+      String(item.payment_status).toLowerCase() === "unpaid";
+
+const paymentAmount = isExtraPayment
+  ? Number(item.total_extra_cost || 0)
+  : Number(item.total_price || 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -233,7 +224,7 @@ export default function PembayaranPesanan() {
         <div className="max-w-3xl mx-auto">
           <div className="mb-5 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">
-              Pembayaran Pesanan
+              {isExtraPayment ? "Pembayaran Tagihan Tambahan" : "Pembayaran Pesanan"}
             </h1>
 
             <button
@@ -269,7 +260,7 @@ export default function PembayaranPesanan() {
                 <p className="text-xs text-gray-400">Total Bayar</p>
 
                 <p className="mt-1 font-semibold text-gray-900">
-                  {formatCurrency(item.total_price)}
+                  {formatCurrency(paymentAmount)}
                 </p>
               </div>
 

@@ -34,6 +34,11 @@ class Rental extends Model
         'customer_email',
         'pickup_method',
         'delivery_address',
+        'returned_at',
+        'inspected_at',
+        'has_late_fine',
+        'has_damage',
+        'total_extra_cost',
     ];
 
     protected $casts = [
@@ -41,12 +46,17 @@ class Rental extends Model
         'end_date' => 'datetime',
         'actual_pickup_at' => 'datetime',
         'actual_return_at' => 'datetime',
+        'returned_at' => 'datetime',
+        'inspected_at' => 'datetime',
         'payment_deadline' => 'datetime',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
         'overdue_started_at' => 'datetime',
         'total_date' => 'integer',
         'total_price' => 'decimal:2',
+        'total_extra_cost' => 'decimal:2',
+        'has_late_fine' => 'boolean',
+        'has_damage' => 'boolean',
     ];
 
     public function user()
