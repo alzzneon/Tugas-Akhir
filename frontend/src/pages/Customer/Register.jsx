@@ -183,7 +183,7 @@ export default function Register() {
     ];
 
     return (
-      <div className="flex items-center justify-center gap-3 mb-8 flex-wrap">
+      <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
         {items.map((item) => {
           const active = step === item.no;
           const passed = step > item.no;
@@ -192,12 +192,12 @@ export default function Register() {
             <div key={item.no} className="flex items-center gap-3">
               <div
                 className={[
-                  "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border",
+                  "flex h-9 w-9 items-center justify-center rounded-full border text-sm font-bold",
                   passed
-                    ? "bg-green-600 text-white border-green-600"
+                    ? "border-green-600 bg-green-600 text-white"
                     : active
-                    ? "bg-red-600 text-white border-red-600"
-                    : "bg-white text-slate-500 border-slate-300",
+                      ? "border-red-600 bg-red-600 text-white"
+                      : "border-slate-300 bg-white text-slate-500",
                 ].join(" ")}
               >
                 {item.no}
@@ -219,15 +219,15 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12 font-sans">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 font-sans">
       <div className="w-full max-w-xl">
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-12">
-          <div className="text-center mb-8">
+        <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-xl shadow-slate-200/50 md:p-12">
+          <div className="mb-8 text-center">
             <h1 className="text-3xl font-black text-slate-900">
               Buat Akun Customer
             </h1>
 
-            <p className="text-slate-500 mt-2">
+            <p className="mt-2 text-slate-500">
               Registrasi menggunakan nomor WhatsApp dan verifikasi OTP
             </p>
           </div>
@@ -235,23 +235,26 @@ export default function Register() {
           {renderStepIndicator()}
 
           {message && (
-            <div className="mb-6 bg-green-50 text-green-700 px-5 py-3 rounded-2xl text-sm border border-green-100">
+            <div className="mb-6 rounded-2xl border border-green-100 bg-green-50 px-5 py-3 text-sm text-green-700">
               {message}
             </div>
           )}
 
           {error && (
-            <div className="mb-6 bg-red-50 text-red-600 px-5 py-3 rounded-2xl text-sm border border-red-100">
+            <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
 
           {/* STEP 1 */}
-
           {step === 1 && (
-            <form onSubmit={handleSendOtp} className="space-y-5">
+            <form
+              onSubmit={handleSendOtp}
+              autoComplete="off"
+              className="space-y-5"
+            >
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Nomor WhatsApp
                 </label>
 
@@ -263,7 +266,8 @@ export default function Register() {
                       e.target.value.replace(/\D/g, "").slice(0, 15)
                     )
                   }
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  autoComplete="tel"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="08123456789"
                   required
                 />
@@ -272,7 +276,7 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+                className="w-full rounded-2xl bg-red-600 py-4 font-bold text-white shadow-lg shadow-red-100 transition-all duration-300 hover:bg-slate-900 disabled:opacity-50"
               >
                 {loading ? "Mengirim OTP..." : "Kirim Kode OTP"}
               </button>
@@ -280,11 +284,14 @@ export default function Register() {
           )}
 
           {/* STEP 2 */}
-
           {step === 2 && (
-            <form onSubmit={handleVerifyOtp} className="space-y-5">
+            <form
+              onSubmit={handleVerifyOtp}
+              autoComplete="off"
+              className="space-y-5"
+            >
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Nomor WhatsApp
                 </label>
 
@@ -292,12 +299,13 @@ export default function Register() {
                   type="text"
                   value={phoneNumber}
                   disabled
-                  className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-3 text-slate-500"
+                  autoComplete="off"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-100 px-5 py-3 text-slate-500"
                 />
               </div>
 
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Kode OTP
                 </label>
 
@@ -309,18 +317,19 @@ export default function Register() {
                       e.target.value.replace(/\D/g, "").slice(0, 6)
                     )
                   }
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all tracking-[0.35em] text-center text-lg font-bold"
+                  autoComplete="one-time-code"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-center text-lg font-bold tracking-[0.35em] outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="123456"
                   maxLength={6}
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-red-600 py-4 font-bold text-white shadow-lg shadow-red-100 transition-all duration-300 hover:bg-slate-900 disabled:opacity-50"
                 >
                   {loading ? "Memverifikasi..." : "Verifikasi OTP"}
                 </button>
@@ -329,7 +338,7 @@ export default function Register() {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={loading}
-                  className="w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-all disabled:opacity-50"
+                  className="w-full rounded-2xl bg-slate-100 py-4 font-bold text-slate-700 transition-all hover:bg-slate-200 disabled:opacity-50"
                 >
                   Kirim Ulang OTP
                 </button>
@@ -343,7 +352,7 @@ export default function Register() {
                   setMessage("");
                   setError("");
                 }}
-                className="w-full text-sm text-slate-500 hover:text-slate-800 transition-all"
+                className="w-full text-sm text-slate-500 transition-all hover:text-slate-800"
               >
                 Ganti nomor WhatsApp
               </button>
@@ -351,14 +360,33 @@ export default function Register() {
           )}
 
           {/* STEP 3 */}
-
           {step === 3 && (
             <form
               onSubmit={handleCompleteRegister}
-              className="grid grid-cols-1 md:grid-cols-2 gap-5"
+              autoComplete="off"
+              className="grid grid-cols-1 gap-5 md:grid-cols-2"
             >
+              {/* Dummy input untuk mencegah Chrome Autofill masuk ke field asli */}
+              <input
+                type="text"
+                name="fake_username"
+                autoComplete="username"
+                className="absolute -left-[9999px] h-0 w-0 opacity-0"
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+
+              <input
+                type="password"
+                name="fake_password"
+                autoComplete="current-password"
+                className="absolute -left-[9999px] h-0 w-0 opacity-0"
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+
               <div className="md:col-span-2">
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Nomor WhatsApp
                 </label>
 
@@ -366,12 +394,13 @@ export default function Register() {
                   type="text"
                   value={phoneNumber}
                   disabled
-                  className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-3 text-slate-500"
+                  autoComplete="off"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-100 px-5 py-3 text-slate-500"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Nama Lengkap
                 </label>
 
@@ -380,61 +409,87 @@ export default function Register() {
                   type="text"
                   value={form.full_name}
                   onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  autoComplete="off"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="Sesuai KTP"
                   required
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Email (Opsional)
                 </label>
 
                 <input
-                  name="email"
-                  type="email"
+                  name="customer_contact_email"
+                  type="text"
+                  inputMode="email"
                   value={form.email}
-                  onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="nama@email.com"
                 />
               </div>
 
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Password
                 </label>
 
                 <input
-                  name="password"
+                  name="customer_new_password"
                   type="password"
                   value={form.password}
-                  onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      password: e.target.value,
+                    }))
+                  }
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="••••••••"
                   required
                 />
               </div>
 
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Konfirmasi Password
                 </label>
 
                 <input
-                  name="password_confirmation"
+                  name="customer_confirm_password"
                   type="password"
                   value={form.password_confirmation}
-                  onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      password_confirmation: e.target.value,
+                    }))
+                  }
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="Ulangi password"
                   required
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Alamat Domisili
                 </label>
 
@@ -442,29 +497,30 @@ export default function Register() {
                   name="address"
                   value={form.address}
                   onChange={handleFormChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  autoComplete="off"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="Alamat lengkap saat ini"
                   rows="2"
                   required
                 />
               </div>
 
-              <div className="md:col-span-2 mt-4">
+              <div className="mt-4 md:col-span-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-red-600 py-4 font-bold text-white shadow-lg shadow-red-100 transition-all duration-300 hover:bg-slate-900 disabled:opacity-50"
                 >
                   {loading
                     ? "Mendaftarkan Akun..."
                     : "Daftar Akun Sekarang"}
                 </button>
 
-                <p className="text-center mt-6 text-sm text-slate-500">
+                <p className="mt-6 text-center text-sm text-slate-500">
                   Sudah memiliki akun?{" "}
                   <Link
                     to="/login"
-                    className="text-red-600 font-bold hover:underline"
+                    className="font-bold text-red-600 hover:underline"
                   >
                     Login di sini
                   </Link>
