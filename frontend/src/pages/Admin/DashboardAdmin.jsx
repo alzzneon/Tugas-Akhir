@@ -9,6 +9,7 @@ import {
   Hourglass,
   ListOrdered,
   Medal,
+  RotateCcw,
   Users,
   XCircle,
 } from "lucide-react";
@@ -47,7 +48,9 @@ function getProgressWidthClass(percent) {
 }
 
 function getMonthLabel(month) {
-  return MONTHS.find((item) => Number(item.value) === Number(month))?.label || "-";
+  return (
+    MONTHS.find((item) => Number(item.value) === Number(month))?.label || "-"
+  );
 }
 
 export default function DashboardAdmin() {
@@ -60,20 +63,10 @@ export default function DashboardAdmin() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const [time, setTime] = useState(new Date());
-
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
 
     return Array.from({ length: 8 }, (_, index) => currentYear - 5 + index);
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -97,9 +90,7 @@ export default function DashboardAdmin() {
       })
       .catch((err) => {
         setError(
-          err.response?.data?.message ||
-            err.message ||
-            "Terjadi kesalahan"
+          err.response?.data?.message || err.message || "Terjadi kesalahan"
         );
       })
       .finally(() => {
@@ -107,16 +98,16 @@ export default function DashboardAdmin() {
       });
   }, [month, year]);
 
-  const resetPeriod = () => {
+  function resetPeriod() {
     const currentDate = new Date();
 
     setMonth(currentDate.getMonth() + 1);
     setYear(currentDate.getFullYear());
-  };
+  }
 
   if (error) {
     return (
-      <div className="p-4 text-xs font-semibold text-[#C8102E]">
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-[#C8102E]">
         Error: {error}
       </div>
     );
@@ -124,7 +115,7 @@ export default function DashboardAdmin() {
 
   if (!data) {
     return (
-      <div className="p-8 text-xs tracking-wide text-gray-400">
+      <div className="rounded-xl border border-gray-200 bg-white p-8 text-sm font-medium text-gray-600 shadow-sm">
         Memuat dashboard...
       </div>
     );
@@ -136,12 +127,12 @@ export default function DashboardAdmin() {
 
   const statCards = [
     {
-      label: "Total Kendaraan",
+      label: "Total kendaraan",
       value: stats.total_vehicles,
       icon: Car,
       borderClass: "border-t-[#2255CC]",
       iconClass: "text-[#2255CC]",
-      sub: "armada terdaftar",
+      sub: "Armada terdaftar",
     },
     {
       label: "Tersedia",
@@ -149,23 +140,23 @@ export default function DashboardAdmin() {
       icon: CheckCircle,
       borderClass: "border-t-[#1A7A40]",
       iconClass: "text-[#1A7A40]",
-      sub: "siap disewa",
+      sub: "Siap disewa",
     },
     {
-      label: "Total Rental",
+      label: "Total rental",
       value: stats.total_rentals,
       icon: Calendar,
       borderClass: "border-t-[#1A7A7A]",
       iconClass: "text-[#1A7A7A]",
-      sub: `periode ${periodLabel}`,
+      sub: `Periode ${periodLabel}`,
     },
     {
-      label: "Rental Aktif",
+      label: "Rental aktif",
       value: stats.active_rentals,
       icon: Clock,
       borderClass: "border-t-[#C8102E]",
       iconClass: "text-[#C8102E]",
-      sub: "ongoing / overdue",
+      sub: "Sedang berjalan / terlambat",
     },
     {
       label: "Pending",
@@ -173,7 +164,7 @@ export default function DashboardAdmin() {
       icon: Hourglass,
       borderClass: "border-t-[#C8A800]",
       iconClass: "text-[#C8A800]",
-      sub: "menunggu konfirmasi",
+      sub: "Menunggu konfirmasi",
     },
     {
       label: "Selesai",
@@ -181,69 +172,69 @@ export default function DashboardAdmin() {
       icon: CheckCircle,
       borderClass: "border-t-emerald-600",
       iconClass: "text-emerald-600",
-      sub: "rental selesai",
+      sub: "Rental selesai",
     },
     {
-      label: "Pelanggan Baru",
+      label: "Pelanggan baru",
       value: stats.new_customers,
       icon: Users,
       borderClass: "border-t-[#7A1A7A]",
       iconClass: "text-[#7A1A7A]",
-      sub: `periode ${periodLabel}`,
+      sub: `Periode ${periodLabel}`,
     },
     {
-      label: "Batal / Ditolak",
+      label: "Batal / ditolak",
       value: stats.cancelled_rentals,
       icon: XCircle,
       borderClass: "border-t-red-600",
       iconClass: "text-red-600",
-      sub: "rental tidak diproses",
+      sub: "Rental tidak diproses",
     },
   ];
 
   const statusConfig = {
     pending: {
-      label: "PENDING",
-      className: "border-[#E8D870] bg-[#FFFBEA] text-[#C8A800]",
+      label: "Pending",
+      className: "border-[#E8D870] bg-[#FFFBEA] text-[#9A7B00]",
     },
     approved: {
-      label: "DISETUJUI",
+      label: "Disetujui",
       className: "border-blue-200 bg-blue-50 text-blue-700",
     },
     ongoing: {
-      label: "AKTIF",
+      label: "Aktif",
       className: "border-[#AADDBB] bg-[#F0FFF5] text-[#1A7A40]",
     },
     overdue: {
-      label: "TERLAMBAT",
+      label: "Terlambat",
       className: "border-[#F5CCCC] bg-[#FFF5F5] text-[#C8102E]",
     },
     returned: {
-      label: "DIKEMBALIKAN",
-      className: "border-gray-200 bg-gray-50 text-gray-600",
+      label: "Dikembalikan",
+      className: "border-gray-300 bg-gray-50 text-gray-700",
     },
     inspection: {
-      label: "INSPEKSI",
+      label: "Inspeksi",
       className: "border-indigo-200 bg-indigo-50 text-indigo-700",
     },
     waiting_payment: {
-      label: "TUNGGU DENDA",
+      label: "Tunggu denda",
       className: "border-amber-200 bg-amber-50 text-amber-700",
     },
     repair_process: {
-      label: "PERBAIKAN",
+      label: "Perbaikan",
       className: "border-purple-200 bg-purple-50 text-purple-700",
     },
     completed: {
-      label: "SELESAI",
-      className: "border-[#AACCDD] bg-[#F0F8FF] text-[#1A5C7A]",
+      label: "Selesai",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
     },
     rejected: {
-      label: "DITOLAK",
+      label: "Ditolak",
       className: "border-red-200 bg-red-50 text-red-600",
     },
     cancelled: {
-      label: "DIBATALKAN",
+      label: "Dibatalkan",
       className: "border-red-200 bg-red-50 text-red-600",
     },
   };
@@ -251,15 +242,17 @@ export default function DashboardAdmin() {
   const maxRental = top_vehicles?.[0]?.total || 1;
 
   return (
-    <div className="flex flex-col gap-[18px] font-sans">
-      <div className="flex flex-col gap-4 border-b-2 border-gray-200 pb-[14px] xl:flex-row xl:items-center xl:justify-between">
-        <div className="border-l-4 border-[#C8102E] pl-3">
-          <h2 className="m-0 text-[15px] font-extrabold uppercase tracking-[0.08em] text-[#1A1A1A]">
+    <div className="flex flex-col gap-5 font-sans">
+      {/* Header */}
+      <div className="flex flex-col gap-4 border-b border-gray-200 pb-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="border-l-4 border-[#C8102E] pl-4">
+          <h2 className="m-0 text-[22px] font-bold tracking-tight text-[#111827]">
             Dashboard
           </h2>
 
-          <p className="mt-0.5 text-[11px] tracking-[0.03em] text-gray-400">
-            Ringkasan operasional PT Ambrina Rental periode {periodLabel}
+          <p className="mt-1 text-[13px] font-normal text-gray-600">
+            Berikut ringkasan aktivitas Ambrina Rental untuk periode{" "}
+            <span className="font-semibold text-[#C8102E]">{periodLabel}</span>.
           </p>
         </div>
 
@@ -267,7 +260,7 @@ export default function DashboardAdmin() {
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
-            className="border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none"
+            className="h-[40px] rounded-xl border border-gray-300 bg-white px-4 text-sm font-normal text-gray-700 outline-none transition focus:border-[#C8102E]"
           >
             {MONTHS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -279,7 +272,7 @@ export default function DashboardAdmin() {
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 outline-none"
+            className="h-[40px] rounded-xl border border-gray-300 bg-white px-4 text-sm font-normal text-gray-700 outline-none transition focus:border-[#C8102E]"
           >
             {years.map((item) => (
               <option key={item} value={item}>
@@ -288,35 +281,41 @@ export default function DashboardAdmin() {
             ))}
           </select>
 
-          <div className="bg-[#1A1A1A] px-[14px] py-[9px] text-[11px] font-bold tracking-[0.1em] text-white tabular-nums">
-            {time.toLocaleTimeString("id-ID")} WIB
-          </div>
+          <button
+            type="button"
+            onClick={resetPeriod}
+            className="inline-flex h-[40px] items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 transition hover:border-[#C8102E] hover:text-[#C8102E]"
+          >
+            <RotateCcw size={14} />
+            Bulan ini
+          </button>
         </div>
       </div>
 
       {loading && (
-        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-700">
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
           Memuat data periode {getMonthLabel(month)} {year}...
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
+      {/* Statistik */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
         {statCards.map(
           ({ label, value, icon: Icon, borderClass, iconClass, sub }) => (
             <div
               key={label}
-              className={`border border-gray-200 border-t-[3px] bg-white px-[14px] pb-3 pt-[14px] ${borderClass}`}
+              className={`rounded-xl border border-gray-200 border-t-[3px] bg-white px-4 py-4 shadow-sm transition hover:shadow-md ${borderClass}`}
             >
-              <div className="mb-2 flex items-center gap-[5px] text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400">
-                <Icon size={11} className={iconClass} />
+              <div className="mb-3 flex items-center gap-2 text-[12px] font-medium text-gray-600">
+                <Icon size={14} className={iconClass} />
                 {label}
               </div>
 
-              <div className="text-[26px] font-extrabold leading-none tracking-[-0.02em] text-[#1A1A1A] tabular-nums">
+              <div className="text-[26px] font-bold leading-none tracking-[-0.02em] text-[#111827] tabular-nums">
                 {value}
               </div>
 
-              <div className="mt-[5px] text-[10px] tracking-[0.02em] text-gray-400">
+              <div className="mt-2 text-[12px] font-normal text-gray-500">
                 {sub}
               </div>
             </div>
@@ -324,33 +323,54 @@ export default function DashboardAdmin() {
         )}
       </div>
 
-      <div className="flex flex-col gap-3 border-l-[5px] border-[#C8102E] bg-[#1A1A1A] px-5 py-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] text-gray-500">
-          <Banknote size={13} className="text-gray-500" />
-          Total Pendapatan Periode {periodLabel}
-        </div>
+      {/* Total Pendapatan */}
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
 
-        <div className="text-[22px] font-extrabold tracking-[-0.01em] text-white tabular-nums">
-          Rp {formatCurrency(stats.total_revenue)}
+            <div>
+              <p className="text-[15px] font-semibold text-[#111827]">
+                Total pendapatan
+              </p>
+
+              <p className="mt-1 text-[12px] font-normal text-gray-500">
+                Pendapatan yang masuk pada periode {periodLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-left md:text-right">
+            <p className="text-[12px] font-normal text-gray-500">
+              Total saat ini
+            </p>
+
+            <p className="mt-1 text-[28px] font-bold leading-none tracking-[-0.02em] text-[#C8102E] tabular-nums">
+              Rp {formatCurrency(stats.total_revenue)}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-[14px] xl:grid-cols-2">
-        <div className="overflow-hidden border border-gray-200 border-t-[3px] border-t-[#C8102E] bg-white">
-          <div className="flex items-center gap-2 border-b border-gray-100 bg-[#FAFAFA] px-[14px] py-[11px]">
-            <ListOrdered size={12} className="text-[#C8102E]" />
+      {/* Tabel Ringkasan */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {/* Rental Terbaru */}
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-start gap-3 border-b border-gray-200 bg-[#FAFAFA] px-4 py-4">
 
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#1A1A1A]">
-              Rental Terbaru Periode {periodLabel}
-            </span>
+            <div>
+              <p className="text-[15px] font-semibold text-[#111827]">
+                Rental terbaru
+              </p>
+
+              <p className="mt-0.5 text-[12px] font-normal text-gray-500">
+                Data penyewaan terbaru pada periode {periodLabel}
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_auto] border-b border-gray-200 bg-[#F5F5F5] px-[14px] py-[7px]">
+          <div className="grid grid-cols-[1fr_1fr_auto] border-b border-gray-200 bg-[#F5F5F5] px-4 py-3">
             {["Pelanggan", "Kendaraan", "Status"].map((h) => (
-              <span
-                key={h}
-                className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400"
-              >
+              <span key={h} className="text-[11px] font-medium text-gray-600">
                 {h}
               </span>
             ))}
@@ -365,25 +385,25 @@ export default function DashboardAdmin() {
                 const vname = r.vehicle?.name || vehicleBrandModel || "-";
 
                 const s = statusConfig[r.status] || {
-                  label: String(r.status || "-").toUpperCase(),
-                  className: "border-gray-200 bg-gray-50 text-gray-600",
+                  label: String(r.status || "-"),
+                  className: "border-gray-300 bg-gray-50 text-gray-700",
                 };
 
                 return (
                   <div
                     key={`${r.id || i}-${r.status || "status"}`}
-                    className="grid grid-cols-[1fr_1fr_auto] items-center border-b border-gray-100 bg-white px-[14px] py-[9px] hover:bg-[#FAFAFA]"
+                    className="grid grid-cols-[1fr_1fr_auto] items-center border-b border-gray-100 bg-white px-4 py-3 transition hover:bg-[#FAFAFA]"
                   >
-                    <span className="truncate pr-2 text-xs font-semibold text-[#1A1A1A]">
+                    <span className="truncate pr-2 text-[13px] font-medium text-[#111827]">
                       {r.user?.full_name || r.user?.name || "-"}
                     </span>
 
-                    <span className="truncate pr-2 text-[11px] text-gray-500">
+                    <span className="truncate pr-2 text-[13px] font-normal text-gray-700">
                       {vname}
                     </span>
 
                     <span
-                      className={`whitespace-nowrap border px-2 py-[3px] text-[9px] font-bold tracking-[0.08em] ${s.className}`}
+                      className={`whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-medium ${s.className}`}
                     >
                       {s.label}
                     </span>
@@ -391,28 +411,31 @@ export default function DashboardAdmin() {
                 );
               })
             ) : (
-              <div className="px-[14px] py-6 text-center text-xs text-gray-400">
+              <div className="px-4 py-8 text-center text-sm font-normal text-gray-500">
                 Tidak ada rental pada periode ini.
               </div>
             )}
           </div>
         </div>
 
-        <div className="overflow-hidden border border-gray-200 border-t-[3px] border-t-[#1A1A1A] bg-white">
-          <div className="flex items-center gap-2 border-b border-gray-100 bg-[#FAFAFA] px-[14px] py-[11px]">
-            <Medal size={12} className="text-gray-700" />
+        {/* Kendaraan Terpopuler */}
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-start gap-3 border-b border-gray-200 bg-[#FAFAFA] px-4 py-4">
 
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#1A1A1A]">
-              Kendaraan Terpopuler Periode {periodLabel}
-            </span>
+            <div>
+              <p className="text-[15px] font-semibold text-[#111827]">
+                Kendaraan terpopuler
+              </p>
+
+              <p className="mt-0.5 text-[12px] font-normal text-gray-500">
+                Kendaraan yang paling sering disewa pada periode {periodLabel}
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-[24px_1fr_80px_40px] gap-2 border-b border-gray-200 bg-[#F5F5F5] px-[14px] py-[7px]">
+          <div className="grid grid-cols-[32px_1fr_110px_48px] gap-2 border-b border-gray-200 bg-[#F5F5F5] px-4 py-3">
             {["#", "Kendaraan", "Popularitas", "Total"].map((h) => (
-              <span
-                key={h}
-                className="text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400"
-              >
+              <span key={h} className="text-[11px] font-medium text-gray-600">
                 {h}
               </span>
             ))}
@@ -433,36 +456,36 @@ export default function DashboardAdmin() {
                 return (
                   <div
                     key={`${t.vehicle?.id || i}-${vname}`}
-                    className="grid grid-cols-[24px_1fr_80px_40px] items-center gap-2 border-b border-gray-100 bg-white px-[14px] py-[9px] hover:bg-[#FAFAFA]"
+                    className="grid grid-cols-[32px_1fr_110px_48px] items-center gap-2 border-b border-gray-100 bg-white px-4 py-3 transition hover:bg-[#FAFAFA]"
                   >
                     <span
-                      className={`text-[11px] font-bold tabular-nums ${
-                        i === 0 ? "text-[#C8102E]" : "text-gray-300"
+                      className={`text-[12px] font-semibold tabular-nums ${
+                        i === 0 ? "text-[#C8102E]" : "text-gray-500"
                       }`}
                     >
                       {i + 1}
                     </span>
 
-                    <span className="truncate text-xs font-semibold text-[#1A1A1A]">
+                    <span className="truncate text-[13px] font-medium text-[#111827]">
                       {vname}
                     </span>
 
-                    <div className="h-1 overflow-hidden bg-gray-200">
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                       <div
-                        className={`h-full ${
-                          i === 0 ? "bg-[#C8102E]" : "bg-gray-400"
+                        className={`h-full rounded-full ${
+                          i === 0 ? "bg-[#C8102E]" : "bg-gray-500"
                         } ${getProgressWidthClass(pct)}`}
                       />
                     </div>
 
-                    <span className="text-right text-[11px] font-bold text-gray-600 tabular-nums">
+                    <span className="text-right text-[12px] font-semibold text-gray-700 tabular-nums">
                       {t.total}x
                     </span>
                   </div>
                 );
               })
             ) : (
-              <div className="px-[14px] py-6 text-center text-xs text-gray-400">
+              <div className="px-4 py-8 text-center text-sm font-normal text-gray-500">
                 Belum ada data kendaraan terpopuler pada periode ini.
               </div>
             )}
