@@ -8,7 +8,7 @@ export default function ForgotPassword() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
-  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [form, setForm] = useState({
     password: "",
@@ -21,13 +21,20 @@ export default function ForgotPassword() {
 
   const getErrorMessage = (err, fallback = "Terjadi kesalahan.") => {
     const errors = err?.response?.data?.errors;
+
     if (errors) {
       const firstKey = Object.keys(errors)[0];
+
       if (firstKey && Array.isArray(errors[firstKey])) {
         return errors[firstKey][0];
       }
     }
+
     return err?.response?.data?.message || fallback;
+  };
+
+  const handlePhoneChange = (e) => {
+    setPhoneNumber(e.target.value.replace(/[^\d+]/g, ""));
   };
 
   const handleChangePassword = (e) => {
@@ -39,16 +46,20 @@ export default function ForgotPassword() {
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
       const res = await axios.post(`${API_BASE}/forgot-password/send-otp`, {
-        email,
+        phone_number: phoneNumber,
       });
 
-      setMessage(res.data.message || "OTP berhasil dikirim ke email.");
+      setMessage(
+        res.data.message || "OTP berhasil dikirim ke WhatsApp."
+      );
+
       setStep(2);
     } catch (err) {
       setError(getErrorMessage(err, "Gagal mengirim OTP."));
@@ -59,13 +70,14 @@ export default function ForgotPassword() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
       const res = await axios.post(`${API_BASE}/forgot-password/verify-otp`, {
-        email,
+        phone_number: phoneNumber,
         otp,
       });
 
@@ -80,13 +92,14 @@ export default function ForgotPassword() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
       const res = await axios.post(`${API_BASE}/forgot-password/reset`, {
-        email,
+        phone_number: phoneNumber,
         password: form.password,
         password_confirmation: form.password_confirmation,
       });
@@ -110,7 +123,7 @@ export default function ForgotPassword() {
 
     try {
       const res = await axios.post(`${API_BASE}/forgot-password/send-otp`, {
-        email,
+        phone_number: phoneNumber,
       });
 
       setMessage(res.data.message || "OTP baru berhasil dikirim.");
@@ -123,13 +136,13 @@ export default function ForgotPassword() {
 
   const renderStepIndicator = () => {
     const items = [
-      { no: 1, label: "Email" },
+      { no: 1, label: "Nomor HP" },
       { no: 2, label: "OTP" },
       { no: 3, label: "Password Baru" },
     ];
 
     return (
-      <div className="flex items-center justify-center gap-3 mb-8 flex-wrap">
+      <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
         {items.map((item) => {
           const active = step === item.no;
           const passed = step > item.no;
@@ -138,16 +151,17 @@ export default function ForgotPassword() {
             <div key={item.no} className="flex items-center gap-3">
               <div
                 className={[
-                  "w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border",
+                  "flex h-9 w-9 items-center justify-center rounded-full border text-sm font-bold",
                   passed
-                    ? "bg-green-600 text-white border-green-600"
+                    ? "border-green-600 bg-green-600 text-white"
                     : active
-                    ? "bg-red-600 text-white border-red-600"
-                    : "bg-white text-slate-500 border-slate-300",
+                      ? "border-red-600 bg-red-600 text-white"
+                      : "border-slate-300 bg-white text-slate-500",
                 ].join(" ")}
               >
                 {item.no}
               </div>
+
               <span
                 className={[
                   "text-sm font-semibold",
@@ -164,26 +178,29 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12 font-sans">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 font-sans">
       <div className="w-full max-w-xl">
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-12">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-black text-slate-900">Lupa Password</h1>
-            <p className="text-slate-500 mt-2">
-              Reset password dilakukan melalui verifikasi OTP email
+        <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-xl shadow-slate-200/50 md:p-12">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-black text-slate-900">
+              Lupa Password
+            </h1>
+
+            <p className="mt-2 text-slate-500">
+              Reset password dilakukan melalui verifikasi OTP WhatsApp
             </p>
           </div>
 
           {renderStepIndicator()}
 
           {message && (
-            <div className="mb-6 bg-green-50 text-green-700 px-5 py-3 rounded-2xl text-sm border border-green-100">
+            <div className="mb-6 rounded-2xl border border-green-100 bg-green-50 px-5 py-3 text-sm text-green-700">
               {message}
             </div>
           )}
 
           {error && (
-            <div className="mb-6 bg-red-50 text-red-600 px-5 py-3 rounded-2xl text-sm border border-red-100">
+            <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
@@ -191,23 +208,28 @@ export default function ForgotPassword() {
           {step === 1 && (
             <form onSubmit={handleSendOtp} className="space-y-5">
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Email
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Nomor HP
                 </label>
+
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
-                  placeholder="nama@email.com"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={handlePhoneChange}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
+                  placeholder="Contoh: 081234567890"
                   required
                 />
+
+                <p className="mt-2 text-xs text-slate-400">
+                  Masukkan nomor HP yang terdaftar pada akun Anda.
+                </p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+                className="w-full rounded-2xl bg-red-600 py-4 font-bold text-white shadow-lg shadow-red-100 transition-all duration-300 hover:bg-slate-900 disabled:opacity-50"
               >
                 {loading ? "Mengirim OTP..." : "Kirim Kode OTP"}
               </button>
@@ -217,37 +239,41 @@ export default function ForgotPassword() {
           {step === 2 && (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Email
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Nomor HP
                 </label>
+
                 <input
-                  type="email"
-                  value={email}
+                  type="tel"
+                  value={phoneNumber}
                   disabled
-                  className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-3 text-slate-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-100 px-5 py-3 text-slate-500"
                 />
               </div>
 
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Kode OTP
                 </label>
+
                 <input
                   type="text"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all tracking-[0.35em] text-center text-lg font-bold"
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-center text-lg font-bold tracking-[0.35em] outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="123456"
                   maxLength={6}
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+                  className="w-full rounded-2xl bg-red-600 py-4 font-bold text-white shadow-lg shadow-red-100 transition-all duration-300 hover:bg-slate-900 disabled:opacity-50"
                 >
                   {loading ? "Memverifikasi..." : "Verifikasi OTP"}
                 </button>
@@ -256,7 +282,7 @@ export default function ForgotPassword() {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={loading}
-                  className="w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-bold hover:bg-slate-200 transition-all disabled:opacity-50"
+                  className="w-full rounded-2xl bg-slate-100 py-4 font-bold text-slate-700 transition-all hover:bg-slate-200 disabled:opacity-50"
                 >
                   Kirim Ulang OTP
                 </button>
@@ -270,9 +296,9 @@ export default function ForgotPassword() {
                   setMessage("");
                   setError("");
                 }}
-                className="w-full text-sm text-slate-500 hover:text-slate-800 transition-all"
+                className="w-full text-sm text-slate-500 transition-all hover:text-slate-800"
               >
-                Ganti email
+                Ganti nomor HP
               </button>
             </form>
           )}
@@ -280,42 +306,45 @@ export default function ForgotPassword() {
           {step === 3 && (
             <form onSubmit={handleResetPassword} className="space-y-5">
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Email
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Nomor HP
                 </label>
+
                 <input
-                  type="email"
-                  value={email}
+                  type="tel"
+                  value={phoneNumber}
                   disabled
-                  className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-3 text-slate-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-100 px-5 py-3 text-slate-500"
                 />
               </div>
 
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Password Baru
                 </label>
+
                 <input
                   type="password"
                   name="password"
                   value={form.password}
                   onChange={handleChangePassword}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="••••••••"
                   required
                 />
               </div>
 
               <div>
-                <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
                   Konfirmasi Password Baru
                 </label>
+
                 <input
                   type="password"
                   name="password_confirmation"
                   value={form.password_confirmation}
                   onChange={handleChangePassword}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 outline-none transition-all focus:border-red-600 focus:bg-white focus:ring-2 focus:ring-red-600/10"
                   placeholder="Ulangi password baru"
                   required
                 />
@@ -324,17 +353,20 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold hover:bg-slate-900 transition-all duration-300 shadow-lg shadow-red-100 disabled:opacity-50"
+                className="w-full rounded-2xl bg-red-600 py-4 font-bold text-white shadow-lg shadow-red-100 transition-all duration-300 hover:bg-slate-900 disabled:opacity-50"
               >
                 {loading ? "Menyimpan..." : "Simpan Password Baru"}
               </button>
             </form>
           )}
 
-          <div className="mt-8 pt-6 border-t border-slate-50 text-center">
-            <p className="text-slate-500 text-sm">
+          <div className="mt-8 border-t border-slate-50 pt-6 text-center">
+            <p className="text-sm text-slate-500">
               Kembali ke{" "}
-              <Link to="/login" className="text-red-600 font-bold hover:underline">
+              <Link
+                to="/login"
+                className="font-bold text-red-600 hover:underline"
+              >
                 halaman login
               </Link>
             </p>

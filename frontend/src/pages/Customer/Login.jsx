@@ -24,7 +24,6 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setLoading(true);
     setError("");
 
@@ -34,119 +33,129 @@ export default function Login() {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
-      if (
-        res.data.user.role === "admin" ||
-        res.data.user.role === "super_admin"
-      ) {
+      if (res.data.user.role === "admin" || res.data.user.role === "super_admin") {
         navigate("/admin/dashboard");
       } else {
         navigate("/");
       }
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Nomor HP atau password salah."
-      );
+      setError(err.response?.data?.message || "Nomor HP atau password salah.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 font-sans">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-slate-900">
-            Selamat Datang
-          </h2>
+    <div className="min-h-screen flex items-center justify-center bg-[#F0F0F0] px-6 font-sans">
+      <div className="w-full max-w-[420px]">
 
-          <p className="text-slate-500 mt-2 text-sm">
-            Masuk untuk mulai merencanakan perjalanan Anda
+        {/* Brand */}
+        <div className="mb-7 text-center">
+          <div className="inline-flex items-center mb-2.5">
+            <div className="bg-[#C8102E] px-3.5 py-2">
+              <span className="text-[15px] font-extrabold text-white tracking-[0.12em] uppercase">
+                AMBRINA
+              </span>
+            </div>
+            <div className="bg-[#1A1A1A] px-3.5 py-2">
+              <span className="text-[15px] font-extrabold text-white tracking-[0.12em] uppercase">
+                RENTAL
+              </span>
+            </div>
+          </div>
+          <p className="text-[10px] font-bold text-[#AAAAAA] uppercase tracking-[0.2em]">
+            Portal Pelanggan
           </p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-10">
-          <h1 className="text-xl font-bold mb-8 text-slate-800 border-b pb-4">
-            Login Customer
-          </h1>
+        {/* Card */}
+        <div className="bg-white border border-[#E0E0E0] border-t-4 border-t-[#C8102E]">
 
-          {error && (
-            <div className="mb-6 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm border border-red-100">
-              {error}
-            </div>
-          )}
+          {/* Card header */}
+          <div className="px-6 py-4 bg-[#FAFAFA] border-b border-[#EEEEEE]">
+            <p className="text-[11px] font-bold text-[#1A1A1A] uppercase tracking-[0.12em]">
+              Login Pelanggan
+            </p>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* NOMOR HP */}
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="px-6 py-6 flex flex-col gap-4">
 
-            <div>
-              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+            {/* Phone */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-[#888888] uppercase tracking-[0.12em]">
                 Nomor HP
               </label>
-
               <input
                 type="text"
                 name="phone_number"
                 value={form.phone_number}
                 onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all placeholder:text-slate-300"
                 placeholder="08123456789"
+                className="w-full px-3.5 py-2.5 text-[13px] text-[#1A1A1A] bg-[#F5F5F5] border border-[#DDDDDD] rounded-none outline-none focus:border-[#C8102E] focus:bg-white transition-colors"
                 required
               />
             </div>
 
-            {/* PASSWORD */}
-
-            <div>
-              <label className="block mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                Password
-              </label>
-
+            {/* Password */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-[#888888] uppercase tracking-[0.12em]">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-[10px] font-bold text-[#C8102E] tracking-[0.05em] hover:underline"
+                >
+                  Lupa Password?
+                </Link>
+              </div>
               <input
                 type="password"
                 name="password"
                 value={form.password}
                 onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 outline-none focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all placeholder:text-slate-300"
                 placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 text-[13px] text-[#1A1A1A] bg-[#F5F5F5] border border-[#DDDDDD] rounded-none outline-none focus:border-[#C8102E] focus:bg-white transition-colors"
                 required
               />
             </div>
 
-            {/* LUPA PASSWORD */}
+            {/* Error */}
+            {error && (
+              <div className="px-3.5 py-2.5 text-[12px] font-semibold text-[#C8102E] bg-[#FFF5F5] border border-[#F5CCCC] border-l-4 border-l-[#C8102E] tracking-[0.02em]">
+                {error}
+              </div>
+            )}
 
-            <div className="flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-red-600 font-semibold hover:underline"
-              >
-                Lupa password?
-              </Link>
-            </div>
-
-            {/* BUTTON */}
-
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-red-600 transition-all duration-300 shadow-lg shadow-slate-200 disabled:opacity-50 mt-2"
+              className="w-full py-3 mt-1 text-[12px] font-bold text-white uppercase tracking-[0.1em] bg-[#C8102E] disabled:bg-[#888888] disabled:cursor-not-allowed transition-colors"
             >
               {loading ? "Menghubungkan..." : "Masuk Sekarang"}
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-slate-50 text-center">
-            <p className="text-slate-500 text-sm">
+          {/* Register link */}
+          <div className="px-6 py-3.5 bg-[#FAFAFA] border-t border-[#EEEEEE] text-center">
+            <p className="text-[11px] text-[#888888]">
               Belum memiliki akun?{" "}
               <Link
                 to="/register"
-                className="text-red-600 font-bold hover:underline"
+                className="text-[11px] font-bold text-[#C8102E] uppercase tracking-[0.03em] hover:underline"
               >
-                Daftar Gratis
+                Daftar Sekarang
               </Link>
             </p>
           </div>
         </div>
+
+        {/* Copyright */}
+        <p className="mt-5 text-center text-[10px] text-[#BBBBBB] uppercase tracking-[0.15em]">
+          © 2026 Ambrina Rental. All Rights Reserved.
+        </p>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function LoginAdmin() {
   const navigate = useNavigate();
@@ -9,9 +9,12 @@ export default function LoginAdmin() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
+  function handlePhoneChange(value) {
+    setPhoneNumber(value.replace(/[^\d+]/g, ""));
+  }
+
   async function handleLogin(e) {
     e.preventDefault();
-
     setLoading(true);
     setMsg("");
 
@@ -23,7 +26,7 @@ export default function LoginAdmin() {
           Accept: "application/json",
         },
         body: JSON.stringify({
-          phone_number: phoneNumber,
+          phone_number: phoneNumber.trim(),
           password,
         }),
       });
@@ -31,111 +34,132 @@ export default function LoginAdmin() {
       const data = await res.json();
 
       if (!res.ok) {
-        setMsg(data.message || "Login gagal");
+        setMsg(data.message || "Login gagal.");
+        return;
+      }
+
+      const role = data.user?.role;
+
+      if (role !== "admin" && role !== "super_admin") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setMsg("Akses ditolak. Akun ini bukan administrator.");
         return;
       }
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-
-      if (
-        data.user.role === "admin" ||
-        data.user.role === "super_admin"
-      ) {
-        navigate("/admin/dashboard", { replace: true });
-      } else {
-        setMsg("Akses ditolak. Akun ini bukan administrator.");
-      }
+      navigate("/admin/dashboard", { replace: true });
     } catch {
-      setMsg("❌ Gagal koneksi ke server");
+      setMsg("Gagal koneksi ke server.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-[#F0F0F0] px-6 font-sans">
+      <div className="w-full max-w-[420px]">
 
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-            Rent<span className="text-red-600">Care.</span>
-          </h1>
-
-          <p className="text-slate-500 mt-2 font-medium">
-            Administrator Portal
+        {/* Brand */}
+        <div className="mb-7 text-center">
+          <div className="inline-flex items-center mb-2.5">
+            <div className="bg-[#C8102E] px-3.5 py-2">
+              <span className="text-[15px] font-extrabold text-white tracking-[0.12em] uppercase">
+                AMBRINA
+              </span>
+            </div>
+            <div className="bg-[#1A1A1A] px-3.5 py-2">
+              <span className="text-[15px] font-extrabold text-white tracking-[0.12em] uppercase">
+                RENTAL
+              </span>
+            </div>
+          </div>
+          <p className="text-[10px] font-bold text-[#AAAAAA] uppercase tracking-[0.2em]">
+            Portal Administrasi
           </p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-10">
+        {/* Card */}
+        <div className="bg-white border border-[#E0E0E0] border-t-4 border-t-[#C8102E]">
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          {/* Card header */}
+          <div className="px-6 py-4 bg-[#FAFAFA] border-b border-[#EEEEEE]">
+            <p className="text-[11px] font-bold text-[#1A1A1A] uppercase tracking-[0.12em]">
+              Login Administrator
+            </p>
+          </div>
 
-            <Input
-              label="Nomor WhatsApp"
-              type="text"
-              placeholder="08123456789"
-              value={phoneNumber}
-              onChange={setPhoneNumber}
-            />
+          {/* Form */}
+          <form onSubmit={handleLogin} className="px-6 py-6 flex flex-col gap-4">
 
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={setPassword}
-            />
+            {/* Phone */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-[#888888] uppercase tracking-[0.12em]">
+                Nomor WhatsApp
+              </label>
+              <input
+                type="tel"
+                placeholder="08123456789"
+                value={phoneNumber}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-[13px] text-[#1A1A1A] bg-[#F5F5F5] border border-[#DDDDDD] rounded-none outline-none focus:border-[#C8102E] focus:bg-white transition-colors"
+                required
+              />
+            </div>
 
+            {/* Password */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-[#888888] uppercase tracking-[0.12em]">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-[10px] font-bold text-[#C8102E] tracking-[0.05em] hover:underline"
+                >
+                  Lupa Password?
+                </Link>
+              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-[13px] text-[#1A1A1A] bg-[#F5F5F5] border border-[#DDDDDD] rounded-none outline-none focus:border-[#C8102E] focus:bg-white transition-colors"
+                required
+              />
+            </div>
+
+            {/* Error */}
+            {msg && (
+              <div className="px-3.5 py-2.5 text-[12px] font-semibold text-[#C8102E] bg-[#FFF5F5] border border-[#F5CCCC] border-l-4 border-l-[#C8102E] tracking-[0.02em]">
+                {msg}
+              </div>
+            )}
+
+            {/* Submit */}
             <button
+              type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-slate-900 text-white font-bold py-4 hover:bg-red-600 transition-all duration-300 shadow-lg shadow-slate-200 disabled:opacity-50"
+              className="w-full py-3 mt-1 text-[12px] font-bold text-white uppercase tracking-[0.1em] bg-[#C8102E] disabled:bg-[#888888] disabled:cursor-not-allowed transition-colors"
             >
               {loading ? "Memproses..." : "Masuk ke Dashboard"}
             </button>
-
           </form>
 
-          {msg && (
-            <div className="mt-6 p-4 rounded-xl text-sm font-medium text-center bg-red-50 text-red-600 border border-red-100">
-              {msg}
-            </div>
-          )}
-
+          {/* Footer note */}
+          <div className="px-6 py-3 bg-[#FAFAFA] border-t border-[#EEEEEE]">
+            <p className="text-[10px] text-[#BBBBBB] text-center tracking-[0.04em]">
+              OTP lupa password akan dikirim ke nomor WhatsApp terdaftar.
+            </p>
+          </div>
         </div>
 
-        <p className="text-center text-slate-400 text-xs mt-8 uppercase tracking-widest">
-          &copy; 2026 RentCare Premium Services
+        {/* Copyright */}
+        <p className="mt-5 text-center text-[10px] text-[#BBBBBB] uppercase tracking-[0.15em]">
+          © 2026 Ambrina Rental. All Rights Reserved.
         </p>
-
       </div>
-    </div>
-  );
-}
-
-function Input({
-  label,
-  type,
-  placeholder,
-  value,
-  onChange,
-}) {
-  return (
-    <div className="space-y-2">
-
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-        {label}
-      </label>
-
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 outline-none text-slate-900 placeholder:text-slate-300 focus:bg-white focus:ring-2 focus:ring-red-600/10 focus:border-red-600 transition-all"
-        required
-      />
-
     </div>
   );
 }
