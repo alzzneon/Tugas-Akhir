@@ -3,14 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 export default function DataTable({
   title,
   subtitle,
-  searchValue,
+  searchValue = "",
   onSearchChange,
+  searchRight,
   onCreate,
   createLabel = "+ Tambah",
   headerRight,
-  columns,
-  rows,
-  loading,
+  columns = [],
+  rows = [],
+  loading = false,
   clickableKey,
   onClickCell,
   renderCell,
@@ -38,59 +39,29 @@ export default function DataTable({
   const colSpan = columns.length + (showActions ? 2 : 1);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px", fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif" }}>
-
+    <div className="flex flex-col gap-4 font-sans">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "12px",
-          paddingBottom: "14px",
-          borderBottom: "2px solid #E0E0E0",
-        }}
-      >
-        <div style={{ borderLeft: "4px solid #C8102E", paddingLeft: "12px" }}>
-          <h1
-            style={{
-              fontSize: "15px",
-              fontWeight: "700",
-              color: "#1A1A1A",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              margin: 0,
-            }}
-          >
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[#E0E0E0] pb-3.5">
+        <div className="border-l-4 border-l-[#C8102E] pl-3">
+          <h1 className="m-0 text-[15px] font-bold uppercase tracking-[0.06em] text-[#1A1A1A]">
             {title}
           </h1>
+
           {subtitle && (
-            <p style={{ marginTop: "2px", fontSize: "11px", color: "#999999", letterSpacing: "0.02em" }}>
+            <p className="mt-0.5 text-[11px] tracking-[0.02em] text-[#999999]">
               {subtitle}
             </p>
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className="flex items-center gap-2">
           {headerRight}
+
           {onCreate && (
             <button
+              type="button"
               onClick={onCreate}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "7px 16px",
-                backgroundColor: "#C8102E",
-                color: "#FFFFFF",
-                fontSize: "12px",
-                fontWeight: "700",
-                border: "none",
-                cursor: "pointer",
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-              }}
+              className="inline-flex items-center gap-1.5 bg-[#C8102E] px-4 py-2 text-[12px] font-bold uppercase tracking-[0.05em] text-white transition hover:opacity-95"
             >
               {createLabel}
             </button>
@@ -100,121 +71,53 @@ export default function DataTable({
 
       {/* Search */}
       {onSearchChange && (
-        <div style={{ position: "relative", width: "100%", maxWidth: "280px" }}>
-          <svg
-            style={{
-              position: "absolute",
-              left: "10px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: "13px",
-              height: "13px",
-              color: "#AAAAAA",
-              pointerEvents: "none",
-            }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari data..."
-            style={{
-              width: "100%",
-              paddingTop: "7px",
-              paddingBottom: "7px",
-              paddingLeft: "32px",
-              paddingRight: "10px",
-              fontSize: "12px",
-              color: "#333333",
-              backgroundColor: "#FAFAFA",
-              border: "1px solid #DDDDDD",
-              borderRadius: "0",
-              outline: "none",
-              boxSizing: "border-box",
-              letterSpacing: "0.02em",
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "#C8102E";
-              e.target.style.backgroundColor = "#FFFFFF";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "#DDDDDD";
-              e.target.style.backgroundColor = "#FAFAFA";
-            }}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full max-w-[280px]">
+            <svg
+              className="pointer-events-none absolute left-2.5 top-1/2 h-[13px] w-[13px] -translate-y-1/2 text-[#AAAAAA]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Cari data..."
+              className="w-full border border-[#DDDDDD] bg-[#FAFAFA] px-2.5 py-2 pl-8 text-[12px] tracking-[0.02em] text-[#333333] outline-none transition focus:border-[#C8102E] focus:bg-white"
+            />
+          </div>
+
+          {searchRight && <div className="relative">{searchRight}</div>}
         </div>
       )}
 
       {/* Table */}
-      <div
-        style={{
-          backgroundColor: "#FFFFFF",
-          border: "1px solid #E0E0E0",
-          borderTop: "3px solid #C8102E",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ overflowX: "auto", maxHeight: "70vh", overflowY: "auto" }}>
-          <table style={{ minWidth: "100%", borderCollapse: "collapse" }}>
-
-            <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
-              <tr style={{ backgroundColor: "#F5F5F5", borderBottom: "2px solid #E0E0E0" }}>
-                <th
-                  style={{
-                    width: "52px",
-                    padding: "10px 14px",
-                    textAlign: "left",
-                    fontSize: "10px",
-                    fontWeight: "700",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.12em",
-                    color: "#888888",
-                    backgroundColor: "#F5F5F5",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+      <div className="overflow-hidden border border-[#E0E0E0] border-t-4 border-t-[#C8102E] bg-white">
+        <div className="max-h-[70vh] overflow-x-auto overflow-y-auto">
+          <table className="min-w-full border-collapse">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b-2 border-[#E0E0E0] bg-[#F5F5F5]">
+                <th className="w-[52px] whitespace-nowrap bg-[#F5F5F5] px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">
                   No
                 </th>
 
                 {columns.map((c) => (
                   <th
                     key={c.key}
-                    style={{
-                      padding: "10px 14px",
-                      textAlign: "left",
-                      fontSize: "10px",
-                      fontWeight: "700",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.12em",
-                      color: "#888888",
-                      backgroundColor: "#F5F5F5",
-                      whiteSpace: "nowrap",
-                    }}
+                    className="whitespace-nowrap bg-[#F5F5F5] px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]"
                   >
                     {c.label}
                   </th>
                 ))}
 
                 {showActions && (
-                  <th
-                    style={{
-                      padding: "10px 14px",
-                      textAlign: "left",
-                      fontSize: "10px",
-                      fontWeight: "700",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.12em",
-                      color: "#888888",
-                      backgroundColor: "#F5F5F5",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <th className="whitespace-nowrap bg-[#F5F5F5] px-3.5 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">
                     Aksi
                   </th>
                 )}
@@ -226,13 +129,7 @@ export default function DataTable({
                 <tr>
                   <td
                     colSpan={colSpan}
-                    style={{
-                      padding: "40px 14px",
-                      textAlign: "center",
-                      fontSize: "12px",
-                      color: "#AAAAAA",
-                      letterSpacing: "0.03em",
-                    }}
+                    className="px-3.5 py-10 text-center text-[12px] tracking-[0.03em] text-[#AAAAAA]"
                   >
                     Memuat data...
                   </td>
@@ -243,13 +140,7 @@ export default function DataTable({
                 <tr>
                   <td
                     colSpan={colSpan}
-                    style={{
-                      padding: "40px 14px",
-                      textAlign: "center",
-                      fontSize: "12px",
-                      color: "#BBBBBB",
-                      letterSpacing: "0.03em",
-                    }}
+                    className="px-3.5 py-10 text-center text-[12px] tracking-[0.03em] text-[#BBBBBB]"
                   >
                     Data tidak tersedia
                   </td>
@@ -259,19 +150,10 @@ export default function DataTable({
               {!loading &&
                 paginatedRows.map((row, index) => (
                   <tr
-                    key={row.id}
-                    style={{ borderBottom: "1px solid #F0F0F0" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#FAFAFA")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#FFFFFF")}
+                    key={row.id || row.booking_code || index}
+                    className="border-b border-[#F0F0F0] transition hover:bg-[#FAFAFA]"
                   >
-                    <td
-                      style={{
-                        padding: "9px 14px",
-                        fontSize: "12px",
-                        color: "#AAAAAA",
-                        fontWeight: "600",
-                      }}
-                    >
+                    <td className="px-3.5 py-2.5 text-[12px] font-semibold text-[#AAAAAA]">
                       {(page - 1) * perPage + index + 1}
                     </td>
 
@@ -285,26 +167,13 @@ export default function DataTable({
                       return (
                         <td
                           key={col.key}
-                          style={{
-                            padding: "9px 14px",
-                            fontSize: "12.5px",
-                            color: "#333333",
-                          }}
+                          className="px-3.5 py-2.5 text-[12.5px] text-[#333333]"
                         >
                           {isClickable ? (
                             <button
+                              type="button"
                               onClick={() => onClickCell(row)}
-                              style={{
-                                fontWeight: "700",
-                                color: "#C8102E",
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                padding: 0,
-                                fontSize: "12.5px",
-                                textDecoration: "underline",
-                                letterSpacing: "0.01em",
-                              }}
+                              className="p-0 text-[12.5px] font-bold tracking-[0.01em] text-[#C8102E] underline"
                             >
                               {content}
                             </button>
@@ -316,43 +185,26 @@ export default function DataTable({
                     })}
 
                     {showActions && (
-                      <td style={{ padding: "9px 14px" }}>
+                      <td className="px-3.5 py-2.5">
                         {actionsRender ? (
                           actionsRender({ row })
                         ) : (
-                          <div style={{ display: "flex", gap: "6px" }}>
+                          <div className="flex gap-1.5">
                             {onEdit && (
                               <button
+                                type="button"
                                 onClick={() => onEdit(row)}
-                                style={{
-                                  padding: "4px 12px",
-                                  fontSize: "11px",
-                                  fontWeight: "600",
-                                  color: "#444444",
-                                  backgroundColor: "#FFFFFF",
-                                  border: "1px solid #CCCCCC",
-                                  cursor: "pointer",
-                                  letterSpacing: "0.04em",
-                                  textTransform: "uppercase",
-                                }}
+                                className="border border-[#CCCCCC] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-[#444444] transition hover:bg-[#F5F5F5]"
                               >
                                 Edit
                               </button>
                             )}
+
                             {onDelete && (
                               <button
+                                type="button"
                                 onClick={() => onDelete(row)}
-                                style={{
-                                  padding: "4px 12px",
-                                  fontSize: "11px",
-                                  fontWeight: "600",
-                                  color: "#C8102E",
-                                  backgroundColor: "#FFFFFF",
-                                  border: "1px solid #F5CCCC",
-                                  cursor: "pointer",
-                                  letterSpacing: "0.04em",
-                                  textTransform: "uppercase",
-                                }}
+                                className="border border-[#F5CCCC] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-[#C8102E] transition hover:bg-[#FFF5F5]"
                               >
                                 Hapus
                               </button>
@@ -364,51 +216,30 @@ export default function DataTable({
                   </tr>
                 ))}
             </tbody>
-
           </table>
         </div>
 
         {/* Pagination */}
         {!loading && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "10px",
-              padding: "10px 14px",
-              borderTop: "1px solid #E0E0E0",
-              backgroundColor: "#FAFAFA",
-            }}
-          >
-            <div style={{ fontSize: "11px", color: "#888888", letterSpacing: "0.02em" }}>
+          <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-[#E0E0E0] bg-[#FAFAFA] px-3.5 py-2.5">
+            <div className="text-[11px] tracking-[0.02em] text-[#888888]">
               Menampilkan{" "}
-              <span style={{ fontWeight: "700", color: "#333333" }}>{startRow}</span>
+              <span className="font-bold text-[#333333]">{startRow}</span>
               {" – "}
-              <span style={{ fontWeight: "700", color: "#333333" }}>{endRow}</span>
+              <span className="font-bold text-[#333333]">{endRow}</span>
               {" dari "}
-              <span style={{ fontWeight: "700", color: "#333333" }}>{rows.length}</span>
+              <span className="font-bold text-[#333333]">{rows.length}</span>
               {" data"}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div className="flex items-center gap-1.5">
               <select
                 value={perPage}
                 onChange={(e) => {
                   setPerPage(Number(e.target.value));
                   setPage(1);
                 }}
-                style={{
-                  padding: "4px 8px",
-                  fontSize: "11px",
-                  color: "#444444",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #DDDDDD",
-                  borderRadius: "0",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
+                className="cursor-pointer border border-[#DDDDDD] bg-white px-2 py-1 text-[11px] text-[#444444] outline-none focus:border-[#C8102E]"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -417,55 +248,23 @@ export default function DataTable({
               </select>
 
               <button
+                type="button"
                 disabled={page === 1}
                 onClick={() => setPage(page - 1)}
-                style={{
-                  padding: "4px 12px",
-                  fontSize: "11px",
-                  fontWeight: "600",
-                  color: page === 1 ? "#CCCCCC" : "#444444",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #DDDDDD",
-                  borderRadius: "0",
-                  cursor: page === 1 ? "not-allowed" : "pointer",
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                }}
+                className="border border-[#DDDDDD] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-[#444444] transition hover:bg-[#F5F5F5] disabled:cursor-not-allowed disabled:text-[#CCCCCC] disabled:hover:bg-white"
               >
                 ← Prev
               </button>
 
-              <span
-                style={{
-                  padding: "4px 10px",
-                  fontSize: "11px",
-                  fontWeight: "700",
-                  color: "#FFFFFF",
-                  backgroundColor: "#C8102E",
-                  letterSpacing: "0.05em",
-                  minWidth: "60px",
-                  textAlign: "center",
-                  display: "inline-block",
-                }}
-              >
+              <span className="inline-block min-w-[60px] bg-[#C8102E] px-2.5 py-1 text-center text-[11px] font-bold tracking-[0.05em] text-white">
                 {page} / {totalPages}
               </span>
 
               <button
+                type="button"
                 disabled={page === totalPages}
                 onClick={() => setPage(page + 1)}
-                style={{
-                  padding: "4px 12px",
-                  fontSize: "11px",
-                  fontWeight: "600",
-                  color: page === totalPages ? "#CCCCCC" : "#444444",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #DDDDDD",
-                  borderRadius: "0",
-                  cursor: page === totalPages ? "not-allowed" : "pointer",
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                }}
+                className="border border-[#DDDDDD] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-[#444444] transition hover:bg-[#F5F5F5] disabled:cursor-not-allowed disabled:text-[#CCCCCC] disabled:hover:bg-white"
               >
                 Next →
               </button>

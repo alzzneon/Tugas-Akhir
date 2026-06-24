@@ -42,9 +42,6 @@ export default function Home() {
 
       <section className="relative bg-white overflow-hidden border-b border-slate-100">
         <div className="max-w-4xl mx-auto px-6 py-20 text-center relative z-10">
-          <span className="inline-block bg-red-50 text-red-600 text-xs font-semibold tracking-widest uppercase px-3 py-1.5 rounded mb-6">
-            Premium Rental Service
-          </span>
           <h1 
             className="text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-slate-900 mb-6"
             style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "1px" }}
