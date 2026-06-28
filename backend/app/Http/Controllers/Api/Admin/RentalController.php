@@ -214,7 +214,12 @@ class RentalController extends ResourceController
 
     public function markOngoing(int $id)
     {
-        $rental = Rental::findOrFail($id);
+        $rental = Rental::query()
+            ->with([
+                'user',
+                'vehicle.type',
+            ])
+            ->findOrFail($id);
 
         if ($rental->status !== 'approved') {
             return $this->error(
@@ -235,6 +240,13 @@ class RentalController extends ResourceController
             'actual_pickup_at' => now(),
         ]);
 
+        $this->sendRentalStartedWhatsapp(
+            $rental->fresh([
+                'user',
+                'vehicle.type',
+            ])
+        );
+
         return $this->success(
             $this->transformRental(
                 $rental->fresh([
@@ -243,88 +255,136 @@ class RentalController extends ResourceController
                     'approvedBy',
                     'rejectedBy',
                     'payments',
+                    'lateFines',
+                    'damages',
                 ])
             ),
             'Rental mulai berjalan.'
         );
     }
 
-    public function markReturned(Request $request, Rental $rental)
-    {
-        if (!in_array($rental->status, ['ongoing', 'overdue'], true)) {
-            return $this->error(
-                'Rental belum bisa dikembalikan.',
-                422
-            );
-        }
-
-        $request->validate([
-            'actual_return_at' => ['nullable', 'date'],
-        ]);
-
-        $actualReturn = Carbon::parse(
-            $request->actual_return_at ?? now()
-        );
-
-        $rental->load([
-            'vehicle.type',
-            'user',
-        ]);
-
-        $lateHours = 0;
-        $totalFine = 0;
-        $calculationType = null;
-
-        if ($actualReturn->greaterThan($rental->end_date)) {
-            $lateHours = $rental->end_date
-                ->diffInHours($actualReturn);
-
-            $threshold = (int) $rental->vehicle->type->late_fee_threshold_hours;
-
-            if ($lateHours <= $threshold) {
-                $totalFine = $lateHours * (float) $rental->vehicle->type->late_fee_per_hour;
-                $calculationType = 'hourly';
-            } else {
-                $additionalDays = ceil($lateHours / 24);
-                $totalFine = $additionalDays * (float) $rental->vehicle->daily_rate;
-                $calculationType = 'additional_rental_day';
-            }
-        }
-
-        DB::transaction(function () use (
-            $rental,
-            $actualReturn,
-            $totalFine,
-            $lateHours,
-            $calculationType
-        ) {
-            $rental->update([
-                'status' => 'returned',
-                'actual_return_at' => $actualReturn,
-            ]);
-
-            if ($totalFine > 0) {
-                $rental->lateFines()->create([
-                    'total_fine' => $totalFine,
-                    'status' => 'unpaid',
-                    'calculation_type' => $calculationType,
-                    'late_hours' => $lateHours,
-                ]);
-            }
-        });
-
-        if ($totalFine > 0) {
-            $this->sendLateFineWhatsapp(
-                $rental->fresh(['vehicle']),
-                $totalFine
-            );
-        }
-
-        return $this->success(
-            $rental->fresh(),
-            'Kendaraan berhasil dikembalikan.'
+public function markReturned(Request $request, Rental $rental)
+{
+    if (!in_array($rental->status, [
+        'ongoing',
+        'overdue',
+    ], true)) {
+        return $this->error(
+            'Rental belum bisa dikembalikan.',
+            422
         );
     }
+
+    $request->validate([
+        'actual_return_at' => ['nullable', 'date'],
+    ]);
+
+    $actualReturn = Carbon::parse(
+        $request->actual_return_at ?? now()
+    );
+
+    $rental->load([
+        'vehicle.type',
+        'user',
+    ]);
+
+    $lateMinutes = 0;
+    $lateHours = 0;
+    $totalFine = 0;
+    $calculationType = null;
+
+    if ($actualReturn->greaterThan($rental->end_date)) {
+        $lateMinutes = $rental->end_date
+            ->diffInMinutes($actualReturn);
+
+        $lateHours = (int) ceil($lateMinutes / 60);
+
+        $threshold = (int) (
+            $rental->vehicle?->type?->late_fee_threshold_hours ?? 0
+        );
+
+        $lateFeePerHour = (float) (
+            $rental->vehicle?->type?->late_fee_per_hour ?? 0
+        );
+
+        if ($lateHours <= $threshold) {
+            $totalFine = $lateHours * $lateFeePerHour;
+            $calculationType = 'hourly';
+        } else {
+            $additionalDays = (int) ceil($lateHours / 24);
+
+            $totalFine = $additionalDays * (float) $rental->vehicle->daily_rate;
+            $calculationType = 'additional_rental_day';
+        }
+    }
+
+    DB::transaction(function () use (
+        $rental,
+        $actualReturn,
+        $totalFine,
+        $lateHours,
+        $calculationType
+    ) {
+        $rental->update([
+            'status' => 'returned',
+            'actual_return_at' => $actualReturn,
+            'has_late_fine' => $totalFine > 0,
+            'total_extra_cost' => $totalFine > 0
+                ? $totalFine
+                : (float) ($rental->total_extra_cost ?? 0),
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Hapus denda otomatis lama yang belum dibayar
+        |--------------------------------------------------------------------------
+        | Supaya kalau admin klik simpan ulang, denda tidak dobel.
+        |--------------------------------------------------------------------------
+        */
+
+        $rental->lateFines()
+            ->whereIn('calculation_type', [
+                'hourly',
+                'additional_rental_day',
+            ])
+            ->where('status', 'unpaid')
+            ->delete();
+
+        if ($totalFine > 0) {
+            $rental->lateFines()->create([
+                'total_fine' => $totalFine,
+                'status' => 'unpaid',
+                'calculation_type' => $calculationType,
+                'late_hours' => $lateHours,
+            ]);
+        }
+    });
+
+    if ($totalFine > 0) {
+        $this->sendLateFineWhatsapp(
+            $rental->fresh([
+                'user',
+                'vehicle',
+            ]),
+            $totalFine
+        );
+    }
+
+    return $this->success(
+        $this->transformRental(
+            $rental->fresh([
+                'user',
+                'vehicle.type',
+                'approvedBy',
+                'rejectedBy',
+                'payments',
+                'lateFines',
+                'damages',
+            ])
+        ),
+        'Kendaraan berhasil dikembalikan.'
+    );
+}
 
     public function updateStatusPayment(Request $request, int $id)
     {
@@ -707,6 +767,63 @@ class RentalController extends ResourceController
         }
     }
 
+private function sendRentalStartedWhatsapp(Rental $rental): void
+{
+    $phone = $this->resolveWhatsappPhone($rental);
+
+    if (!$phone) {
+        return;
+    }
+
+    $customerName = $rental->user?->full_name
+        ?: $rental->customer_name
+        ?: 'Customer';
+
+    $message =
+        "Halo {$customerName},\n\n" .
+        "Masa sewa kendaraan Anda telah dimulai.\n\n" .
+        "Kode Booking: {$rental->booking_code}\n" .
+        "Kendaraan: " . ($rental->vehicle->name ?? '-') . "\n" .
+        "Mulai Sewa: " . optional($rental->start_date)->format('d/m/Y H:i') . "\n" .
+        "Batas Kembali: " . optional($rental->end_date)->format('d/m/Y H:i') . "\n\n" .
+        "Mohon menjaga kendaraan dengan baik dan mengembalikan tepat waktu.\n\n" .
+        "Terima kasih.";
+
+    try {
+        $response = $this->fonnteService->sendMessage(
+            $phone,
+            $message
+        );
+
+        $this->logWhatsappMessage(
+            $rental->id,
+            $rental->user_id,
+            $phone,
+            $message,
+            'sent',
+            'rental_started',
+            isset($response['id']) ? (string) $response['id'] : null,
+            null
+        );
+    } catch (\Throwable $e) {
+        Log::error('Gagal kirim WA rental dimulai', [
+            'rental_id' => $rental->id,
+            'error' => $e->getMessage(),
+        ]);
+
+        $this->logWhatsappMessage(
+            $rental->id,
+            $rental->user_id,
+            $phone,
+            $message,
+            'failed',
+            'rental_started',
+            null,
+            $e->getMessage()
+        );
+    }
+}
+
     private function sendLateFineWhatsapp(Rental $rental, float $totalFine): void
     {
         $phone = $this->resolveWhatsappPhone($rental);
@@ -986,125 +1103,124 @@ class RentalController extends ResourceController
         ];
     }
 
-    public function inspectVehicle(Request $request, int $id)
-    {
-        $validated = $request->validate([
-            'has_late_fine' => ['required', 'boolean'],
-            'late_fine_amount' => ['nullable', 'numeric', 'min:0'],
-            'has_damage' => ['required', 'boolean'],
-            'damages' => ['nullable', 'array'],
-            'damages.*.description' => ['required', 'string', 'max:1000'],
-            'damages.*.repair_cost' => ['required', 'numeric', 'min:0'],
-        ]);
+public function inspectVehicle(Request $request, int $id)
+{
+    $validated = $request->validate([
+        'has_late_fine' => ['nullable', 'boolean'],
+        'late_fine_amount' => ['nullable', 'numeric', 'min:0'],
 
-        $rental = Rental::findOrFail($id);
+        'has_damage' => ['required', 'boolean'],
 
-        if (!in_array($rental->status, [
-            'returned',
-            'inspection',
-            'waiting_payment',
-        ], true)) {
-            return $this->error(
-                'Rental belum bisa diinspeksi.',
-                422
-            );
+        'damages' => ['nullable', 'array'],
+        'damages.*.description' => ['required', 'string', 'max:1000'],
+        'damages.*.repair_cost' => ['required', 'numeric', 'min:0'],
+    ]);
+
+    $rental = Rental::findOrFail($id);
+
+    if (!in_array($rental->status, [
+        'returned',
+        'inspection',
+        'waiting_payment',
+    ], true)) {
+        return $this->error(
+            'Rental belum bisa diinspeksi.',
+            422
+        );
+    }
+
+    DB::transaction(function () use ($validated, $rental) {
+        $existingDamageIds = $rental->damages()
+            ->pluck('id')
+            ->all();
+
+        if (!empty($existingDamageIds)) {
+            DB::table('vehicle_services')
+                ->whereIn('damage_id', $existingDamageIds)
+                ->delete();
         }
 
-        DB::transaction(function () use ($validated, $rental) {
-            $existingDamageIds = $rental->damages()
-                ->pluck('id')
-                ->all();
+        $rental->damages()->delete();
 
-            if (!empty($existingDamageIds)) {
-                DB::table('vehicle_services')
-                    ->whereIn('damage_id', $existingDamageIds)
-                    ->delete();
-            }
+        /*
+        |--------------------------------------------------------------------------
+        | Denda keterlambatan by system
+        |--------------------------------------------------------------------------
+        | Denda manual dari admin tidak dipakai lagi.
+        | Jika ada data manual lama yang belum dibayar, dihapus agar tidak ikut.
+        |--------------------------------------------------------------------------
+        */
 
-            $rental->damages()->delete();
+        $rental->lateFines()
+            ->where('calculation_type', 'manual')
+            ->where('status', 'unpaid')
+            ->delete();
 
-            $totalExtra = 0;
+        $totalExtra = (float) $rental->lateFines()
+            ->where('status', 'unpaid')
+            ->sum('total_fine');
 
-            $rental->lateFines()
-                ->where('calculation_type', 'manual')
-                ->where('status', 'unpaid')
-                ->delete();
+        $damages = $validated['has_damage']
+            ? ($validated['damages'] ?? [])
+            : [];
 
-            $totalExtra += (float) $rental->lateFines()
-                ->sum('total_fine');
+        $maintenanceTypeId = DB::table('mt_maintenance_types')
+            ->where('name', 'Perbaikan Kerusakan')
+            ->value('id');
 
-            if ($validated['has_late_fine']) {
-                $fineAmount = (float) ($validated['late_fine_amount'] ?? 0);
+        foreach ($damages as $damage) {
+            $repairCost = (float) $damage['repair_cost'];
 
-                if ($fineAmount > 0) {
-                    $rental->lateFines()->create([
-                        'total_fine' => $fineAmount,
-                        'status' => 'unpaid',
-                        'calculation_type' => 'manual',
-                        'late_hours' => 0,
-                    ]);
-
-                    $totalExtra += $fineAmount;
-                }
-            }
-
-            $damages = $validated['has_damage']
-                ? ($validated['damages'] ?? [])
-                : [];
-
-            $maintenanceTypeId = DB::table('mt_maintenance_types')
-                ->where('name', 'Perbaikan Kerusakan')
-                ->value('id');
-
-            foreach ($damages as $damage) {
-                $repairCost = (float) $damage['repair_cost'];
-
-                $damageRow = $rental->damages()->create([
-                    'vehicle_id' => $rental->vehicle_id,
-                    'description' => $damage['description'],
-                    'repair_cost' => $repairCost,
-                    'status' => 'pending',
-                ]);
-
-                DB::table('vehicle_services')->insert([
-                    'vehicle_id' => $rental->vehicle_id,
-                    'rental_id' => $rental->id,
-                    'damage_id' => $damageRow->id,
-                    'maintenance_type_id' => $maintenanceTypeId,
-                    'service_date' => now()->toDateString(),
-                    'service_type' => 'Perbaikan Kerusakan',
-                    'condition_status' => 'damaged',
-                    'description' => $damage['description'],
-                    'cost' => $repairCost,
-                    'status' => 'planned',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $totalExtra += $repairCost;
-            }
-
-            $newStatus = $totalExtra > 0
-                ? 'waiting_payment'
-                : 'completed';
-
-            $rental->update([
-                'status' => $newStatus,
-                'inspected_at' => now(),
-                'has_late_fine' => (float) $rental->lateFines()->sum('total_fine') > 0,
-                'has_damage' => count($damages) > 0,
-                'total_extra_cost' => $totalExtra,
+            $damageRow = $rental->damages()->create([
+                'vehicle_id' => $rental->vehicle_id,
+                'description' => $damage['description'],
+                'repair_cost' => $repairCost,
+                'status' => 'pending',
             ]);
-        });
 
-        return $this->success(
+            DB::table('vehicle_services')->insert([
+                'vehicle_id' => $rental->vehicle_id,
+                'rental_id' => $rental->id,
+                'damage_id' => $damageRow->id,
+                'maintenance_type_id' => $maintenanceTypeId,
+                'service_date' => now()->toDateString(),
+                'service_type' => 'Perbaikan Kerusakan',
+                'condition_status' => 'damaged',
+                'description' => $damage['description'],
+                'cost' => $repairCost,
+                'status' => 'planned',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $totalExtra += $repairCost;
+        }
+
+        $newStatus = $totalExtra > 0
+            ? 'waiting_payment'
+            : 'completed';
+
+        $rental->update([
+            'status' => $newStatus,
+            'inspected_at' => now(),
+            'has_late_fine' => (float) $rental->lateFines()
+                ->where('status', 'unpaid')
+                ->sum('total_fine') > 0,
+            'has_damage' => count($damages) > 0,
+            'total_extra_cost' => $totalExtra,
+        ]);
+    });
+
+    return $this->success(
+        $this->transformRental(
             $rental->fresh([
                 'lateFines',
                 'damages',
-            ]),
-            'Inspeksi kendaraan berhasil.'
-        );
-    }
+            ])
+        ),
+        'Inspeksi kendaraan berhasil.'
+    );
+}
 
     public function pay(Request $request, int $id)
     {

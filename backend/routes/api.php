@@ -18,7 +18,7 @@ use App\Http\Controllers\Api\Admin\PaymentStatusController;
 use App\Http\Controllers\Api\Admin\VehicleController;
 use App\Http\Controllers\Api\Admin\RentalController as AdminRentalController;
 use App\Http\Controllers\Api\PaymentController;
-
+use App\Http\Controllers\Api\ForgotPasswordController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Services\FonnteService;
 use App\Http\Controllers\Api\MidtransController;
@@ -41,8 +41,12 @@ Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyForgot
 Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword']);
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
+    
+Route::middleware('admin:super_admin')->group(function () {
     Route::apiResource('admins', AdminUserController::class)
         ->only(['index', 'store', 'update', 'destroy']);
+
+});
 
     Route::prefix('masters')->group(function () {
         Route::apiResource('vehicle-types', VehicleTypeController::class)
@@ -109,6 +113,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
 });
+
+    Route::prefix('forgot-password')->group(function () {
+        Route::post('/send-otp', [ForgotPasswordController::class, 'sendOtp']);
+        Route::post('/verify-otp', [ForgotPasswordController::class, 'verifyOtp']);
+        Route::post('/reset', [ForgotPasswordController::class, 'resetPassword']);
+    });
 
     Route::post('/midtrans/notification', [MidtransController::class, 'notificationHandler']);
 
