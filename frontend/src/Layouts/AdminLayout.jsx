@@ -105,6 +105,8 @@ export default function AdminLayout() {
   const notifMenuRef = useRef(null);
 
   const token = localStorage.getItem("token");
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const isSuperAdmin = currentUser.role === "super_admin";
 
   const api = useMemo(() => {
     return axios.create({
@@ -399,13 +401,15 @@ export default function AdminLayout() {
           />
 
           <SectionLabel label="Sistem" collapsed={collapsed} />
-
+          
+          {isSuperAdmin && (
           <SideItem
             to="/admin/admins"
             icon={Users}
             label="Manajemen Admin"
             collapsed={collapsed}
           />
+          )}
 
           <SideItem
             to="/admin/company-profile"
