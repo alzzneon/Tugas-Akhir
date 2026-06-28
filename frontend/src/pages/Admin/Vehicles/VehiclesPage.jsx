@@ -46,6 +46,10 @@ export default function VehiclesPage({ title, typeCode }) {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [q, setQ] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
+  const [transmissionFilter, setTransmissionFilter] = useState("");
+  const [priceSort, setPriceSort] = useState("");
+  const [openFilter, setOpenFilter] = useState(false);
 
   // ===== Modal create/edit/view =====
   const [open, setOpen] = useState(false);
@@ -124,6 +128,10 @@ export default function VehiclesPage({ title, typeCode }) {
     [transmissions]
   );
 
+  const filterBrands = useMemo(() => {
+    return [...new Set(rows.map((r) => r.vehicle_brand_name).filter(Boolean))];
+  }, [rows]);
+
   const formFields = useMemo(
     () => [
       { key: "image", label: "Foto Kendaraan", type: "file" },
@@ -162,14 +170,64 @@ export default function VehiclesPage({ title, typeCode }) {
     [typeOptions, brandOptions, transmissionOptions]
   );
 
-  const filtered = (rows ?? []).filter((r) => {
-    const s = (q || "").toLowerCase();
-    return (
-      r.name?.toLowerCase().includes(s) ||
-      r.plate_number?.toLowerCase().includes(s) ||
-      r.vehicle_brand_name?.toLowerCase().includes(s)
-    );
-  });
+    const filtered = useMemo(() => {
+    let data = [...rows];
+
+    if (q) {
+      const keyword = q.toLowerCase();
+
+      data = data.filter(
+        (r) =>
+          r.name?.toLowerCase().includes(keyword) ||
+          r.plate_number?.toLowerCase().includes(keyword) ||
+          r.vehicle_brand_name?.toLowerCase().includes(keyword)
+      );
+    }
+
+    if (brandFilter) {
+      data = data.filter(
+        (r) => r.vehicle_brand_name === brandFilter
+      );
+    }
+
+    if (transmissionFilter) {
+      data = data.filter(
+        (r) => r.transmission_name === transmissionFilter
+      );
+    }
+
+    if (priceSort === "asc") {
+      data.sort(
+        (a, b) => Number(a.daily_rate) - Number(b.daily_rate)
+      );
+    }
+
+    if (priceSort === "desc") {
+      data.sort(
+        (a, b) => Number(b.daily_rate) - Number(a.daily_rate)
+      );
+    }
+
+    return data;
+  }, [
+    rows,
+    q,
+    brandFilter,
+    transmissionFilter,
+    priceSort,
+  ]);
+
+  const activeFilterCount = [
+    brandFilter,
+    transmissionFilter,
+    priceSort,
+  ].filter(Boolean).length;
+
+  function resetFilters() {
+    setBrandFilter("");
+    setTransmissionFilter("");
+    setPriceSort("");
+  }
 
   // preview untuk file baru
   useEffect(() => {
@@ -318,6 +376,159 @@ export default function VehiclesPage({ title, typeCode }) {
         title={title}
         searchValue={q}
         onSearchChange={setQ}
+searchRight={
+  <div className="relative">
+    <button
+      type="button"
+      onClick={() => setOpenFilter((prev) => !prev)}
+      className={`relative inline-flex h-[42px] w-[42px] items-center justify-center border text-gray-600 transition hover:bg-gray-50 ${
+        activeFilterCount > 0
+          ? "border-[#C8102E] text-[#C8102E]"
+          : "border-gray-300"
+      }`}
+      title="Filter Data"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-5 w-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 4h18l-7 8v6l-4 2v-8L3 4z"
+        />
+      </svg>
+
+      {activeFilterCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#C8102E] px-1 text-[10px] font-bold text-white">
+          {activeFilterCount}
+        </span>
+      )}
+    </button>
+
+    {openFilter && (
+      <div className="absolute left-0 top-full z-30 mt-2 w-[290px] border border-gray-200 bg-white p-4 shadow-lg">
+
+        <div className="mb-3 flex items-center justify-between">
+
+          <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-gray-700">
+            Filter Data
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setOpenFilter(false)}
+            className="text-lg text-gray-400 hover:text-gray-700"
+          >
+            ×
+          </button>
+
+        </div>
+
+        <div className="space-y-3">
+
+          <div>
+
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
+              Merek
+            </label>
+
+            <select
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+              className="w-full border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">Semua Merek</option>
+
+              {filterBrands.map((brand) => (
+                <option
+                  key={brand}
+                  value={brand}
+                >
+                  {brand}
+                </option>
+              ))}
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
+              Transmisi
+            </label>
+
+            <select
+              value={transmissionFilter}
+              onChange={(e) =>
+                setTransmissionFilter(e.target.value)
+              }
+              className="w-full border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">Semua Transmisi</option>
+
+              {transmissionOptions.map((t) => (
+                <option
+                  key={t.value}
+                  value={t.label}
+                >
+                  {t.label}
+                </option>
+              ))}
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
+              Urut Harga
+            </label>
+
+            <select
+              value={priceSort}
+              onChange={(e)=>setPriceSort(e.target.value)}
+              className="w-full border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">Default</option>
+              <option value="asc">Termurah</option>
+              <option value="desc">Termahal</option>
+            </select>
+
+          </div>
+
+          <div className="flex gap-2 pt-2">
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="flex-1 border border-gray-300 px-3 py-2 text-sm font-semibold"
+            >
+              Reset
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOpenFilter(false)}
+              className="flex-1 bg-[#C8102E] px-3 py-2 text-sm font-semibold text-white"
+            >
+              Terapkan
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+    )}
+  </div>
+}          
         onCreate={openCreate}
         columns={columns}
         rows={filtered}
